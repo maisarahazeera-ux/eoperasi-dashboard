@@ -1,0 +1,55 @@
+# =====================================================================
+#  e-Operasi Dashboard — files that must NEVER go to GitHub
+# =====================================================================
+
+# ---------- 1. Teacher data (personal data under PDPA) ----------
+# Raw SEPADU exports and everything produced from them.
+sepadu_data/
+data_export/
+*sepadu*.txt
+*sepadu*.xlsx
+*.xlsx
+*.xls
+*.csv
+*.txt
+!**/requirements.txt
+
+# Jupyter autosave copies (may contain data in cell outputs)
+.ipynb_checkpoints/
+
+# ---------- 2. Secrets ----------
+# Real passwords / JWT key live here. Commit the *.example.json instead.
+EOperasiAPI/appsettings.Development.json
+EOperasiAPI/appsettings.Production.json
+**/appsettings.*.local.json
+.env
+.env.*
+!.env.example
+
+# ---------- 3. User uploads ----------
+# Profile photos uploaded through the Profile page.
+EOperasiAPI/uploads/
+
+# ---------- 4. Build output & dependencies (re-created automatically) ----------
+# .NET
+EOperasiAPI/bin/
+EOperasiAPI/obj/
+*.user
+.vs/
+
+# Node / Vite
+node_modules/
+dist/
+*.log
+npm-debug.log*
+
+# ---------- 5. Editor / OS clutter ----------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Stray lock file in the root folder (the real one is inside e-Operasi prototype/)
+/package-lock.json

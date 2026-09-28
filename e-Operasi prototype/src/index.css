@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+:root {
+  --navy: #1F3864;
+  --navy-dark: #162847;
+  --navy-light: #2a4d8a;
+  --teal: #0D9488;
+  --teal-light: #14b8a6;
+  --orange: #F97316;
+  --bg: #F5F5F5;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.nav-tab {
+  padding: 0 16px;
+  gap: 7px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.nav-tab:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+.nav-tab.active {
+  color: #fff;
+  border-bottom-color: #0D9488;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 8px rgba(0,0,0,0.04);
+}
+
+.badge-sk {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-smk {
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-tetap {
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-kontrak {
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-sandaran {
+  background: #f3e8ff;
+  color: #6b21a8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-vaksin {
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.badge-novaksin {
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.table-row-hover {
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.table-row-hover:hover {
+  background: #f0f9ff;
+}
+
+.sidebar-slide {
+  animation: slideIn 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+
+.filter-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+select, input[type="text"], input[type="password"] {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+select:focus, input[type="text"]:focus, input[type="password"]:focus {
+  border-color: #0D9488;
+  box-shadow: 0 0 0 2px rgba(13,148,136,0.12);
+}
+
+/* Liquid auth field pop-in */
+@keyframes liquidFieldPop {
+  0%   { opacity: 0; transform: translateY(14px) scale(.92); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.liquid-fields.is-open > * {
+  animation: liquidFieldPop .5s cubic-bezier(.34,1.56,.64,1) both;
+}
+.liquid-fields.is-open > *:nth-child(1) { animation-delay: .06s; }
+.liquid-fields.is-open > *:nth-child(2) { animation-delay: .13s; }
+.liquid-fields.is-open > *:nth-child(3) { animation-delay: .20s; }
+.liquid-fields.is-open > *:nth-child(4) { animation-delay: .27s; }
+.liquid-fields.is-open > *:nth-child(5) { animation-delay: .34s; }
+
+.liquid-drop {
+  animation: liquidDropFade .22s ease-out forwards;
+}
+@keyframes liquidDropFade {
+  0%   { opacity: 1; r: 3.5; }
+  100% { opacity: 0; r: 0.5; }
+}
+
+.liquid-input::placeholder {
+  color: rgba(255,255,255,0.5);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+/* ---------- Layout sizing ----------
+   Page content is capped at a comfortable reading width and centred,
+   so it doesn't stretch edge-to-edge on wide monitors. */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.chart-grid > .wide { grid-column: 1 / -1; }
+
+/* Top nav: shrink gracefully instead of pushing buttons off-screen */
+@media (max-width: 1400px) {
+  .nav-ministry { display: none; }
+  .nav-tab { padding: 0 12px; }
+}
+@media (max-width: 1150px) {
+  .nav-btn-label { display: none; }
+}
+@media (max-width: 1000px) {
+  .nav-tab-label { display: none; }
+  .chart-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Chart text sizes ----------
+   Recharts' default tooltip and legend text is ~16px, which is larger than
+   the rest of the dashboard. Keep all chart text in the 11–12px range. */
+.recharts-default-tooltip {
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.recharts-default-tooltip .recharts-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 2px !important;
+}
+.recharts-default-tooltip .recharts-tooltip-item {
+  padding: 1px 0 !important;
+}
+.recharts-default-legend {
+  font-size: 12px !important;
+}
+.recharts-legend-item-text {
+  font-size: 12px !important;
+}
+
+/* ---------- Text size (user preference) ----------
+   The whole app is scaled with CSS zoom (height stays 100% of the window).
+   When text is enlarged, the top bar needs the space earlier, so hide optional parts sooner. */
+#root {
+  zoom: var(--app-zoom, 1);
+}
+@media (max-width: 1600px) {
+  html[data-text-size="large"] .nav-ministry { display: none; }
+}
+@media (max-width: 1300px) {
+  html[data-text-size="large"] .nav-btn-label { display: none; }
+  html[data-text-size="large"] .nav-tab { padding: 0 10px; }
+}
+@media (max-width: 1150px) {
+  html[data-text-size="large"] .nav-tab-label { display: none; }
+}
