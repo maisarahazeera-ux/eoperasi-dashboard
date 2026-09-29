@@ -4,13 +4,13 @@ export type Lang = "ms" | "en";
 
 const dict = {
   // App shell
-  navOverview: { ms: "Overview", en: "Overview" },
+  navOverview: { ms: "Gambaran", en: "Overview" },
   navCarianGuru: { ms: "Carian Guru", en: "Find Teacher" },
   navDemografi: { ms: "Demografi", en: "Demographics" },
   navGred: { ms: "Gred", en: "Grade" },
   navSubjek: { ms: "Subjek", en: "Subject" },
   navPersaraan: { ms: "Persaraan", en: "Retirement" },
-  titleOverview: { ms: "Dashboard e-Operasi — Maklumat Guru Semua Jenis Sekolah", en: "e-Operasi Dashboard — Teacher Data, All School Types" },
+  titleOverview: { ms: "Gambaran Keseluruhan", en: "Overview" },
   titleCarianGuru: { ms: "Carian Guru", en: "Find Teacher" },
   titleDemografi: { ms: "Demografi Guru", en: "Teacher Demographics" },
   titleGred: { ms: "Taburan Gred Perkhidmatan", en: "Service Grade Distribution" },
@@ -388,6 +388,28 @@ const dict = {
   filterShow: { ms: "Tunjuk penapis", en: "Show filters" },
   filterSearchPlaceholder: { ms: "Taip untuk cari...", en: "Type to search..." },
   filterNoMatch: { ms: "Tiada padanan", en: "No matches" },
+
+  // macOS-style shell
+  macGroupDashboard: { ms: "Papan Pemuka", en: "Dashboard" },
+  macGroupAnalysis: { ms: "Analisis", en: "Analysis" },
+  macSearchPlaceholder: { ms: "Cari nama guru atau No. KP", en: "Search teacher name or IC" },
+  macProfileSettings: { ms: "Profil & Tetapan", en: "Profile & Settings" },
+  macDataAsOf: { ms: "Data SEPADU", en: "SEPADU data" },
+  themeDark: { ms: "Tukar ke mod gelap", en: "Switch to dark mode" },
+  themeLight: { ms: "Tukar ke mod cerah", en: "Switch to light mode" },
+  softUpdated: { ms: "dikemas kini", en: "updated" },
+  softStatus: { ms: "Status", en: "Status" },
+  macMoreFilters: { ms: "Tapisan lain", en: "More filters" },
+  ovPermanentShare: { ms: "berstatus tetap", en: "permanent" },
+  ovSchoolTypesCount: { ms: "jenis sekolah", en: "school types" },
+  ovOfTotal: { ms: "daripada jumlah guru", en: "of all teachers" },
+  ovFromDob: { ms: "Berdasarkan tarikh lahir", en: "Based on date of birth" },
+  ovComposition: { ms: "Komposisi Guru", en: "Teacher Composition" },
+  ovAgeDist: { ms: "Taburan Umur", en: "Age Distribution" },
+  ovTeachersWord: { ms: "guru", en: "teachers" },
+  ovTopSchoolsTitle: { ms: "10 Sekolah Paling Ramai Guru", en: "Top 10 Schools by Teachers" },
+  ovPermanentShort: { ms: "tetap", en: "permanent" },
+  ovTypesTitle: { ms: "Guru mengikut Jenis Sekolah", en: "Teachers by School Type" },
 
   // Footer
   footerCopyright: { ms: "Hakcipta Terpelihara © 2026 Kementerian Pendidikan Malaysia", en: "All Rights Reserved © 2026 Ministry of Education Malaysia" },

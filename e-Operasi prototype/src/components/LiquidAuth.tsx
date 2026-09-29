@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-const NAVY = "#0b3d66";
-const NAVY_DEEP = "#082c49";
-const GREEN = "#0f8a5f";
+// Colours follow the Clean & Soft theme (blue accent, green on success).
+const NAVY = "#2F62B5";
+const NAVY_DEEP = "#1F4FA0";
+const GREEN = "#0F8A5F";
 
 export interface LiquidField {
   id: string;
@@ -242,7 +243,7 @@ export default function LiquidAuth({
         ))}
       </div>
 
-      {error && <div style={{ color: "#dc2626", fontSize: 12, marginTop: 10 }}>{error}</div>}
+      {error && <div style={{ color: "var(--bad-ink)", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{error}</div>}
 
       <div
         style={{
@@ -260,7 +261,7 @@ export default function LiquidAuth({
           disabled={stage === "submitting"}
           style={{
             border: "none", background: NAVY_DEEP, color: "#fff", fontSize: 12.5, fontWeight: 700,
-            padding: "9px 18px", borderRadius: 7, cursor: "pointer",
+            padding: "10px 22px", borderRadius: 999, cursor: "pointer",
           }}
         >
           {stage === "submitting" ? submittingLabel : submitLabel}

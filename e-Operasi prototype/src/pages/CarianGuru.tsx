@@ -8,7 +8,9 @@ import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { NAVY, TEAL, schoolTypeChip } from "../lib/colors";
 import { shortSchoolName } from "../lib/schoolName";
 import { valueLabel, clean } from "../lib/labels";
+import { PagerButton, Tag } from "../components/ui";
 import SearchableSelect from "../lib/SearchableSelect";
+import PageHero from "../components/PageHero";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
 
 const PAGE_SIZE = 15;
@@ -44,13 +46,13 @@ function formatDate(dateStr: string | null, locale: string) {
   return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function CarianGuru() {
+export default function CarianGuru({ initialQuery = "" }: { initialQuery?: string }) {
   const { t, lang } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "ms-MY";
   const { teachers, error } = useTeachers();
   const { schoolTypes, schoolsByType, subjects, employmentStatuses } = useTeacherLookups(teachers);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [filterSchoolType, setFilterSchoolType] = useState("");
   const [filterSchool, setFilterSchool] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
@@ -126,12 +128,13 @@ export default function CarianGuru() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <PageHero title={t("titleCarianGuru")} />
       {/* Filter bar */}
-      <div style={{ padding: "12px 24px", background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+      <div style={{ padding: "4px 32px 16px", background: "transparent", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
         <div style={{ position: "relative", minWidth: 230, flex: "1 1 230px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} color="#9ca3af" />
           <input type="text" placeholder={t("cgSearchPlaceholder")} value={query}
-            onChange={(e) => withReset(setQuery)(e.target.value)} style={{ paddingLeft: 30 }} />
+            onChange={(e) => withReset(setQuery)(e.target.value)} style={{ paddingLeft: 32, height: 38, borderRadius: 999 }} />
         </div>
         <div style={{ minWidth: 130 }}>
           <select value={filterSchoolType}
@@ -156,24 +159,24 @@ export default function CarianGuru() {
         </div>
         {isDirty && (
           <button onClick={clearAll}
-            style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            className="soft-pill small ghost">
             <X size={12} /> {t("cgClear")}
           </button>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--soft-muted)", whiteSpace: "nowrap" }}>
           {filtered.length.toLocaleString(locale)} {t("cgRecordsFound")}
         </span>
       </div>
 
       {/* Table + detail panel */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        <div style={{ flex: 1, overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
+        <div style={{ flex: 1, overflowY: "auto", background: "var(--mac-bg)", padding: "8px 32px 28px" }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table className="soft-table">
               <thead>
-                <tr style={{ background: NAVY }}>
+                <tr>
                   {(["", "cgColName", "cgColIc", "cgColSchool", "cgColType", "cgColPosition", "cgColGrade", "cgColSubject"] as (DictKey | "")[]).map((h, i) => (
-                    <th key={i} style={{ padding: "9px 13px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap" }}>
+                    <th key={i}>
                       {h ? t(h) : ""}
                     </th>
                   ))}
@@ -183,29 +186,29 @@ export default function CarianGuru() {
                 {paginated.map((x, i) => (
                   <tr key={x.id} className="table-row-hover"
                     onClick={() => { setSelected(x); setShowIC(false); }}
-                    style={{ background: selected?.id === x.id ? "#e0f2fe" : i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
+                    style={{ background: selected?.id === x.id ? "var(--hover)" : undefined }} data-i={i}>
                     <td style={{ padding: "9px 13px" }}>
                       <Avatar gender={x.gender} size={32} />
                     </td>
-                    <td style={{ padding: "9px 13px", fontSize: 13, fontWeight: 500, color: "#111827" }}>{x.name}</td>
-                    <td style={{ padding: "9px 13px", fontSize: 11.5, color: "#6b7280", fontFamily: "monospace", whiteSpace: "nowrap" }}>{maskIC(x.icNumber)}</td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#374151", maxWidth: 200 }} title={x.school}>
+                    <td style={{ padding: "9px 13px", fontSize: 13, fontWeight: 500, color: "var(--soft-text)" }}>{x.name}</td>
+                    <td style={{ padding: "9px 13px", fontSize: 11.5, color: "var(--soft-muted)", fontFamily: "monospace", whiteSpace: "nowrap" }}>{maskIC(x.icNumber)}</td>
+                    <td style={{ padding: "9px 13px", fontSize: 12, color: "var(--soft-text-2)", maxWidth: 200 }} title={x.school}>
                       <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortSchoolName(x.school)}</div>
                     </td>
                     <td style={{ padding: "9px 13px" }}>
                       <span style={schoolTypeChip(x.schoolType)}>{x.schoolType}</span>
                     </td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#374151", maxWidth: 200 }} title={x.position ?? ""}>
+                    <td style={{ padding: "9px 13px", fontSize: 12, color: "var(--soft-text-2)", maxWidth: 200 }} title={x.position ?? ""}>
                       <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.position || "-"}</div>
                     </td>
                     <td style={{ padding: "9px 13px" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, background: "#f3f4f6", color: NAVY, padding: "2px 7px", borderRadius: 4 }}>{x.gredHakiki || "-"}</span>
+                      <span className="tag tag-info">{x.gredHakiki || "-"}</span>
                     </td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#6b7280" }}>{x.subjects[0]?.name ?? "-"}</td>
+                    <td style={{ padding: "9px 13px", fontSize: 12, color: "var(--soft-muted)" }}>{x.subjects[0]?.name ?? "-"}</td>
                   </tr>
                 ))}
                 {paginated.length === 0 && (
-                  <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>{t("cgNoRecords")}</td></tr>
+                  <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: "var(--soft-faint)", fontSize: 13 }}>{t("cgNoRecords")}</td></tr>
                 )}
               </tbody>
             </table>
@@ -214,14 +217,14 @@ export default function CarianGuru() {
           {totalPages > 1 && (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 14 }}>
               <PageBtn label={t("cgPrev")} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} />
-              <span style={{ fontSize: 12, color: "#6b7280" }}>{t("cgPage")} {page} / {totalPages}</span>
+              <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>{t("cgPage")} {page} / {totalPages}</span>
               <PageBtn label={t("cgNext")} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} />
             </div>
           )}
         </div>
 
         {selected && (
-          <aside className="sidebar-slide" style={{ width: 390, background: "#fff", borderLeft: "1px solid #e5e7eb", overflowY: "auto", flexShrink: 0 }}>
+          <aside className="sidebar-slide" style={{ width: 390, background: "var(--surface)", borderLeft: "1px solid var(--soft-line)", overflowY: "auto", flexShrink: 0 }}>
             <Panel teacher={selected} showIC={showIC} setShowIC={setShowIC} onClose={() => setSelected(null)} locale={locale} />
           </aside>
         )}
@@ -241,19 +244,14 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
 function Avatar({ gender, size }: { gender: string; size: number }) {
   const male = gender === "L";
   return (
-    <div style={{ width: size, height: size, borderRadius: "50%", background: male ? "#dbeafe" : "#ccfbf1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <User size={size * 0.47} color={male ? "#2F62B5" : "#0F9488"} />
+    <div style={{ width: size, height: size, borderRadius: "50%", background: male ? "var(--tint-blue)" : "var(--tint-rose)", color: male ? "var(--ink-blue)" : "var(--ink-rose)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <User size={size * 0.47} />
     </div>
   );
 }
 
 function PageBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, cursor: disabled ? "not-allowed" : "pointer", color: disabled ? "#9ca3af" : NAVY }}>
-      {label}
-    </button>
-  );
+  return <PagerButton label={label} onClick={onClick} disabled={disabled} />;
 }
 
 function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
@@ -266,25 +264,25 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
 
   return (
     <div>
-      <div style={{ background: NAVY, padding: "18px 18px 14px", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ background: "var(--tint-blue)", padding: "20px 20px 16px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ display: "flex", gap: 13, alignItems: "center" }}>
             <Avatar gender={x.gender} size={50} />
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{x.name}</div>
-              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>{x.position} · {x.gredHakiki}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--soft-text)", lineHeight: 1.3 }}>{x.name}</div>
+              <div style={{ fontSize: 11.5, color: "var(--soft-text-2)", marginTop: 2 }}>{x.position} · {x.gredHakiki}</div>
               <div style={{ marginTop: 6, display: "flex", gap: 5, flexWrap: "wrap" }}>
-                <span style={{ ...schoolTypeChip(x.schoolType), background: "#fff" }}>{x.schoolType}</span>
+                <span style={{ ...schoolTypeChip(x.schoolType), background: "var(--surface)" }}>{x.schoolType}</span>
                 <Pill ok={x.employmentStatus === "Tetap"} text={valueLabel(x.employmentStatus, lang)} />
                 <Pill ok={x.serviceStatus === "Aktif"} text={valueLabel(x.serviceStatus, lang)} />
               </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6, padding: "4px 6px", cursor: "pointer", color: "#fff", display: "flex" }}>
+          <button onClick={onClose} aria-label="Tutup" style={{ background: "var(--surface)", border: "none", borderRadius: 999, padding: 6, cursor: "pointer", color: "var(--soft-text-2)", display: "flex" }}>
             <X size={16} />
           </button>
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.65)" }}>{x.school}</div>
+        <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--soft-muted)" }}>{x.school}</div>
       </div>
 
       <div style={{ paddingBottom: 24 }}>
@@ -296,10 +294,10 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
           <Row label={t("cgRace")} value={valueLabel(x.race, lang)} />
           <Row label={t("cgReligion")} value={valueLabel(x.religion, lang)} />
           <Row label={t("cgNationality")} value={x.nationality ?? ""} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f9fafb" }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>{t("cgColIc")}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--surface-2)" }}>
+            <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>{t("cgColIc")}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "#111827" }}>{showIC ? x.icNumber : maskIC(x.icNumber)}</span>
+              <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "var(--soft-text)" }}>{showIC ? x.icNumber : maskIC(x.icNumber)}</span>
               <button onClick={() => setShowIC(!showIC)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: TEAL }}>
                 {showIC ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
@@ -330,14 +328,14 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
 
         <Section title={t("cgSecSubjects")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 4 }}>
-            {x.subjects.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af" }}>{t("cgNoSubjects")}</div>}
+            {x.subjects.length === 0 && <div style={{ fontSize: 12, color: "var(--soft-faint)" }}>{t("cgNoSubjects")}</div>}
             {x.subjects.map((s, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f9fafb", borderRadius: 7, padding: "7px 10px" }}>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)", borderRadius: 7, padding: "7px 10px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <BookOpen size={13} color={TEAL} />
-                  <span style={{ fontSize: 12.5, color: "#111827", fontWeight: 500 }}>{s.name}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--soft-text)", fontWeight: 500 }}>{s.name}</span>
                 </div>
-                <span style={{ fontSize: 11, color: "#6b7280" }}>{s.hours} {t("cgPeriodsPerWeek")}</span>
+                <span style={{ fontSize: 11, color: "var(--soft-muted)" }}>{s.hours} {t("cgPeriodsPerWeek")}</span>
               </div>
             ))}
           </div>
@@ -357,9 +355,9 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: "1px solid #f3f4f6" }}>
+    <div style={{ borderBottom: "1px solid var(--surface-3)" }}>
       <div style={{ padding: "11px 18px 3px" }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.07em" }}>{title}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--soft-text)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{title}</span>
       </div>
       <div style={{ padding: "0 18px 10px" }}>{children}</div>
     </div>
@@ -368,9 +366,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "5px 0", borderBottom: "1px solid #f9fafb" }}>
-      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 130, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 500, color: "#111827", textAlign: "right" }}>{value || "-"}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "5px 0", borderBottom: "1px solid var(--surface-2)" }}>
+      <span style={{ fontSize: 12, color: "var(--soft-muted)", minWidth: 130, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)", textAlign: "right" }}>{value || "-"}</span>
     </div>
   );
 }
@@ -378,16 +376,14 @@ function Row({ label, value }: { label: string; value: string }) {
 function Pill({ ok, text }: { ok: boolean; text: string }) {
   if (!text) return null;
   return (
-    <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: ok ? "#d1fae5" : "#fef3c7", color: ok ? "#065f46" : "#92400e" }}>
-      {text}
-    </span>
+    <Tag kind={ok ? "ok" : "warn"}>{text}</Tag>
   );
 }
 
 function PillRow({ label, ok, text }: { label: string; ok: boolean; text: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f9fafb" }}>
-      <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--surface-2)" }}>
+      <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>{label}</span>
       {text ? <Pill ok={ok} text={text} /> : <span style={{ fontSize: 12.5 }}>-</span>}
     </div>
   );
@@ -397,7 +393,7 @@ function CRow({ icon, value }: { icon: React.ReactNode; value: string }) {
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
       <div style={{ marginTop: 2, flexShrink: 0 }}>{icon}</div>
-      <span style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>{value || "-"}</span>
+      <span style={{ fontSize: 12.5, color: "var(--soft-text-2)", lineHeight: 1.5 }}>{value || "-"}</span>
     </div>
   );
 }

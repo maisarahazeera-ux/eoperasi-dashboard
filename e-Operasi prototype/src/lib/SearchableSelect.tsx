@@ -106,7 +106,7 @@ export default function SearchableSelect({
           style={{
             width: "100%", display: "flex", alignItems: "center", gap: 6,
             fontFamily: "inherit", fontSize: 13, color: "var(--text-primary)",
-            background: "#fff", border: "1px solid var(--border)", borderRadius: 7,
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 7,
             padding: "7px 10px", cursor: "pointer", textAlign: "left",
           }}
         >
@@ -131,13 +131,13 @@ export default function SearchableSelect({
           ref={listRef}
           style={{
             position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
-            maxHeight: 240, overflowY: "auto", background: "#fff",
+            maxHeight: 240, overflowY: "auto", background: "var(--surface)",
             border: "1px solid var(--border)", borderRadius: 7,
             boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
           }}
         >
           {matches.length === 0 ? (
-            <div style={{ padding: "8px 10px", fontSize: 12.5, color: "#9ca3af" }}>{noMatchLabel}</div>
+            <div style={{ padding: "8px 10px", fontSize: 12.5, color: "var(--soft-faint)" }}>{noMatchLabel}</div>
           ) : (
             matches.map((o, i) => (
               <div
@@ -147,7 +147,7 @@ export default function SearchableSelect({
                 onMouseEnter={() => setHighlight(i)}
                 style={{
                   padding: "7px 10px", fontSize: 12.5, cursor: "pointer",
-                  background: i === highlight ? "#f0fdfa" : o.value === value ? "#f9fafb" : "#fff",
+                  background: i === highlight ? "var(--hover)" : o.value === value ? "var(--surface-2)" : "var(--surface)",
                   color: o.value === value ? "#0D9488" : "var(--text-primary)",
                   fontWeight: o.value === value ? 600 : 400,
                 }}

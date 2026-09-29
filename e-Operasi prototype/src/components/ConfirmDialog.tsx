@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { LogOut } from "lucide-react";
 
-const NAVY = "#1F3864";
-
 interface Props {
   title: string;
   message: string;
@@ -12,7 +10,7 @@ interface Props {
   onCancel: () => void;
 }
 
-/** Small yes/no popup. Esc or clicking outside = cancel. */
+/** Small yes/no popup (used for "Log keluar?"). Esc or clicking outside = cancel. */
 export default function ConfirmDialog({ title, message, confirmLabel, cancelLabel, onConfirm, onCancel }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -23,24 +21,18 @@ export default function ConfirmDialog({ title, message, confirmLabel, cancelLabe
   }, [onCancel]);
 
   return (
-    <div onClick={onCancel}
-      style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(8,44,73,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
-        style={{ width: 360, maxWidth: "100%", background: "#fff", borderRadius: 14, boxShadow: "0 20px 50px rgba(8,44,73,0.3)", padding: "22px 22px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: "#fee2e2", color: "#b91c1c", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <LogOut size={16} />
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: NAVY }}>{title}</div>
+    <div onClick={onCancel} className="soft-overlay">
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="soft-dialog">
+        <div style={{ width: 52, height: 52, borderRadius: 16, background: "var(--tint-rose)", color: "var(--ink-rose)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+          <LogOut size={22} />
         </div>
-        <div style={{ fontSize: 13, color: "#4b5563", marginBottom: 20 }}>{message}</div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button onClick={onCancel} autoFocus
-            style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        <h2 id="confirm-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, textAlign: "center" }}>{title}</h2>
+        <p style={{ margin: "6px 0 22px", fontSize: 13, color: "var(--soft-muted)", textAlign: "center", lineHeight: 1.5 }}>{message}</p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" autoFocus onClick={onCancel} className="soft-pill" style={{ flex: 1, justifyContent: "center" }}>
             {cancelLabel}
           </button>
-          <button onClick={onConfirm}
-            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#b91c1c", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button type="button" onClick={onConfirm} className="soft-pill danger" style={{ flex: 1, justifyContent: "center" }}>
             {confirmLabel}
           </button>
         </div>

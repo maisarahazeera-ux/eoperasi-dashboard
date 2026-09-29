@@ -3,7 +3,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, Legend,
 } from "recharts";
-import { Award as AwardIcon, Star, Loader2, AlertTriangle } from "lucide-react";
+import { Award as AwardIcon, Star, Loader2, AlertTriangle, TrendingUp, UserPlus } from "lucide-react";
+import { StatTile, StatRow, CardTitle, PillToggle } from "../components/ui";
 import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { type Teacher } from "../lib/api";
@@ -144,8 +145,9 @@ export default function Gred() {
   const n = filtered.length || 1;
 
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
+        title={t("titleGred")}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}
@@ -154,44 +156,38 @@ export default function Gred() {
         employmentStatuses={employmentStatuses}
       />
 
-      <main style={{ flex: 1, overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
-        <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{t("grTitle")}</h1>
-            <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>
-              {filtered.length.toLocaleString(locale)} {t("dmInView")}
-            </p>
-          </div>
+      <main className="mac-main">
+        <div style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <p style={{ fontSize: 13, color: "var(--soft-muted)", margin: 0 }}>
+            {filtered.length.toLocaleString(locale)} {t("dmInView")}
+          </p>
           {/* Hakiki = substantive grade on appointment; Penyandang = grade currently held */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>{t("grBasis")}:</span>
-            <div style={{ display: "flex", background: "#e5e7eb", borderRadius: 8, padding: 3 }}>
-              {(["penyandang", "hakiki"] as Basis[]).map((b) => (
-                <button key={b} onClick={() => setBasis(b)}
-                  style={{
-                    border: "none", cursor: "pointer", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600,
-                    background: basis === b ? "#fff" : "transparent", color: basis === b ? NAVY : "#6b7280",
-                    boxShadow: basis === b ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-                  }}>
-                  {t(b === "hakiki" ? "grHakiki" : "grPenyandang")}
-                </button>
-              ))}
-            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--soft-muted)" }}>{t("grBasis")}:</span>
+            <PillToggle<Basis>
+              ariaLabel={t("grBasis")}
+              value={basis}
+              onChange={setBasis}
+              options={[
+                { value: "penyandang", label: t("grPenyandang") },
+                { value: "hakiki", label: t("grHakiki") },
+              ]}
+            />
           </div>
         </div>
 
         {/* Stat strip */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 24 }}>
-          <StatCard label={t("grTopGrade")} value={topGred.name} sub={`${topGred.count.toLocaleString(locale)} ${t("grTeachersWord")}`} accent={NAVY} />
-          <StatCard label={t("grSenior")} value={seniorCount.toLocaleString(locale)} sub={t("grTeachersWord")} accent={TEAL} />
-          <StatCard label={t("grEntry")} value={entryCount.toLocaleString(locale)} sub={t("grTeachersWord")} accent={ORANGE} />
-        </div>
+        <StatRow>
+          <StatTile icon={<AwardIcon size={20} />} tone="blue" label={t("grTopGrade")} value={topGred.name} note={`${topGred.count.toLocaleString(locale)} ${t("grTeachersWord")}`} />
+          <StatTile icon={<TrendingUp size={20} />} tone="teal" label={t("grSenior")} value={seniorCount.toLocaleString(locale)} note={t("grTeachersWord")} />
+          <StatTile icon={<UserPlus size={20} />} tone="amber" label={t("grEntry")} value={entryCount.toLocaleString(locale)} note={t("grTeachersWord")} />
+        </StatRow>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="soft-grid">
           {/* Chart 1 — bar by grade */}
-          <div className="card" style={{ padding: "16px 18px" }}>
+          <div className="card soft-card">
             <ChartTitle>{t("grChartByGrade")}</ChartTitle>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={230}>
               <BarChart data={byGred} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
@@ -205,9 +201,9 @@ export default function Gred() {
           </div>
 
           {/* Chart 2 — stacked by school type */}
-          <div className="card" style={{ padding: "16px 18px" }}>
+          <div className="card soft-card">
             <ChartTitle>{t("grChartByType")}</ChartTitle>
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={230}>
               <BarChart data={stackedByType} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
@@ -222,13 +218,13 @@ export default function Gred() {
           </div>
 
           {/* Summary table — full width */}
-          <div className="card" style={{ padding: "16px 18px", gridColumn: "1 / -1" }}>
+          <div className="card soft-card wide">
             <ChartTitle>{t("grSummary")}</ChartTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+            <table className="soft-table">
               <thead>
-                <tr style={{ background: "#f9fafb" }}>
+                <tr>
                   {(["grColGrade", "grColCount", "grColPct", "grColGroup"] as DictKey[]).map((h) => (
-                    <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>
+                    <th key={h}>
                       {t(h)}
                     </th>
                   ))}
@@ -238,24 +234,24 @@ export default function Gred() {
                 {byGred.map((d, i) => {
                   const pct = ((d.count / n) * 100).toFixed(1);
                   return (
-                    <tr key={d.name} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
+                    <tr key={d.name} data-i={i}>
                       <td style={{ padding: "8px 14px" }}>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, background: "#f3f4f6", color: NAVY, padding: "2px 9px", borderRadius: 4 }}>
+                        <span className="tag tag-info" style={{ fontSize: 12 }}>
                           {d.name}
                         </span>
                       </td>
-                      <td style={{ padding: "8px 14px", fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                      <td style={{ padding: "8px 14px", fontSize: 13, fontWeight: 600, color: "var(--soft-text)" }}>
                         {d.count.toLocaleString(locale)}
                       </td>
                       <td style={{ padding: "8px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 99, overflow: "hidden", maxWidth: 120 }}>
+                          <div style={{ flex: 1, height: 6, background: "var(--soft-line)", borderRadius: 99, overflow: "hidden", maxWidth: 120 }}>
                             <div style={{ width: `${pct}%`, height: "100%", background: gradeColor(d.name), borderRadius: 99 }} />
                           </div>
-                          <span style={{ fontSize: 12, color: "#6b7280", minWidth: 36 }}>{pct}%</span>
+                          <span style={{ fontSize: 12, color: "var(--soft-muted)", minWidth: 36 }}>{pct}%</span>
                         </div>
                       </td>
-                      <td style={{ padding: "8px 14px", fontSize: 12, color: "#6b7280" }}>{t(gradeGroup(d.name))}</td>
+                      <td style={{ padding: "8px 14px", fontSize: 12, color: "var(--soft-muted)" }}>{t(gradeGroup(d.name))}</td>
                     </tr>
                   );
                 })}
@@ -264,31 +260,29 @@ export default function Gred() {
           </div>
 
           {/* Recognition & special duties */}
-          <div className="card" style={{ padding: "16px 18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #f3f4f6" }}>
-              <Star size={14} color={ORANGE} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>{t("grCemerlang")}</span>
-              <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: ORANGE }}>
-                {cemerlangTeachers.length.toLocaleString(locale)} {t("grTeachersWord")}
-              </span>
-            </div>
+          <div className="card soft-card">
+            <CardTitle
+              icon={<Star size={16} color={ORANGE} />}
+              right={<span className="tag tag-warn">{cemerlangTeachers.length.toLocaleString(locale)} {t("grTeachersWord")}</span>}
+            >
+              {t("grCemerlang")}
+            </CardTitle>
             {cemerlangByBidang.length === 0 ? (
-              <div style={{ padding: "20px 0", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>{t("grNoCemerlang")}</div>
+              <div style={{ padding: "20px 0", textAlign: "center", color: "var(--soft-faint)", fontSize: 12.5 }}>{t("grNoCemerlang")}</div>
             ) : (
               <BarList items={cemerlangByBidang} total={cemerlangTeachers.length} colorOffset={0} labelWidth={170} />
             )}
           </div>
 
-          <div className="card" style={{ padding: "16px 18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #f3f4f6" }}>
-              <AwardIcon size={14} color={NAVY} />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: NAVY }}>{t("grTugasKhas")}</span>
-              <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: NAVY }}>
-                {withDuty.length.toLocaleString(locale)} {t("grTeachersWord")}
-              </span>
-            </div>
+          <div className="card soft-card">
+            <CardTitle
+              icon={<AwardIcon size={16} color={NAVY} />}
+              right={<span className="tag tag-info">{withDuty.length.toLocaleString(locale)} {t("grTeachersWord")}</span>}
+            >
+              {t("grTugasKhas")}
+            </CardTitle>
             {tugasKhasCounts.length === 0 ? (
-              <div style={{ padding: "20px 0", textAlign: "center", color: "#9ca3af", fontSize: 12.5 }}>{t("grNoTugasKhas")}</div>
+              <div style={{ padding: "20px 0", textAlign: "center", color: "var(--soft-faint)", fontSize: 12.5 }}>{t("grNoTugasKhas")}</div>
             ) : (
               <BarList items={tugasKhasCounts} total={withDuty.length} colorOffset={2} labelWidth={200} />
             )}
@@ -307,11 +301,11 @@ function BarList({ items, total, colorOffset, labelWidth }: {
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
       {items.map((d, i) => (
         <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 10 }} title={`${d.name}: ${d.count} (${((d.count / (total || 1)) * 100).toFixed(1)}%)`}>
-          <span style={{ fontSize: 11.5, color: "#374151", width: labelWidth, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
-          <div style={{ flex: 1, height: 8, background: "#f3f4f6", borderRadius: 99, overflow: "hidden" }}>
+          <span style={{ fontSize: 11.5, color: "var(--soft-text-2)", width: labelWidth, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+          <div style={{ flex: 1, height: 8, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
             <div style={{ width: `${(d.count / max) * 100}%`, height: "100%", background: CHART_COLORS[(i + colorOffset) % CHART_COLORS.length], borderRadius: 99 }} />
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#111827", minWidth: 36, textAlign: "right" }}>{d.count.toLocaleString()}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--soft-text)", minWidth: 36, textAlign: "right" }}>{d.count.toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -326,20 +320,6 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
   );
 }
 
-function StatCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
-  return (
-    <div className="card" style={{ padding: "16px 20px", borderLeft: `4px solid ${accent}` }}>
-      <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 2 }}>{sub}</div>
-      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 5 }}>{label}</div>
-    </div>
-  );
-}
-
 function ChartTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 12.5, fontWeight: 700, color: NAVY, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #f3f4f6" }}>
-      {children}
-    </div>
-  );
+  return <CardTitle>{children}</CardTitle>;
 }

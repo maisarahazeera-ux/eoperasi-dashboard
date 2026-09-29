@@ -129,13 +129,13 @@ public class AuthController : ControllerBase
             var frontendUrl = FrontendUrlFromRequest() ?? _config["FrontendUrl"] ?? "http://localhost:8443";
             var resetLink = $"{frontendUrl}/?resetToken={Uri.EscapeDataString(rawToken)}";
 
-            var body = $@"
-                <p>Salam {HtmlEncode(user.FullName)},</p>
-                <p>Klik pautan di bawah untuk menetapkan semula kata laluan anda. Pautan ini sah selama 1 jam sahaja.</p>
-                <p><a href=""{resetLink}"">{resetLink}</a></p>
-                <p>Jika anda tidak memohon penetapan semula kata laluan, sila abaikan emel ini.</p>
-            ";
-            await _emailSender.SendAsync(user.Email, "Tetapkan Semula Kata Laluan — e-Operasi", body);
+            // Expiry time shown to the user in Malaysia time (UTC+8).
+            var expiresLocal = user.PasswordResetExpiresAt.Value.AddHours(8);
+            var body = BuildResetEmail(user.FullName, user.Username, resetLink, expiresLocal);
+            await _emailSender.SendAsync(
+                user.Email,
+                "e-Operasi: Permohonan Tetapan Semula Kata Laluan / Password Reset Request",
+                body);
         }
 
         return Ok(new { message = "If that email is registered, a reset link has been sent." });
@@ -218,4 +218,56 @@ public class AuthController : ControllerBase
     }
 
     private static string HtmlEncode(string s) => System.Net.WebUtility.HtmlEncode(s);
+
+    /// <summary>
+    /// Formal bilingual (BM / English) password-reset email.
+    /// HTML attributes use single quotes so the C# string needs no escaping.
+    /// </summary>
+    private static string BuildResetEmail(string fullName, string username, string resetLink, DateTime expiresLocal)
+    {
+        var name = HtmlEncode(string.IsNullOrWhiteSpace(fullName) ? username : fullName);
+        var user = HtmlEncode(username);
+        var link = HtmlEncode(resetLink);
+        var expiry = expiresLocal.ToString("dd/MM/yyyy, h:mm tt", System.Globalization.CultureInfo.InvariantCulture);
+
+        return $@"
+<div style='margin:0;padding:24px 12px;background:#EEF2F8;font-family:Segoe UI,Arial,sans-serif;color:#152033;'>
+  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='max-width:560px;margin:0 auto;background:#FFFFFF;border:1px solid #E3E8F0;border-radius:16px;'>
+    <tr>
+      <td style='padding:22px 28px;border-bottom:1px solid #E3E8F0;'>
+        <div style='font-size:18px;font-weight:700;color:#1F4FA0;'>e-Operasi</div>
+        <div style='font-size:12px;color:#5B6576;'>Pejabat Pendidikan Daerah Johor Bahru</div>
+      </td>
+    </tr>
+    <tr>
+      <td style='padding:26px 28px 8px;font-size:14px;line-height:1.65;'>
+        <p style='margin:0 0 14px;'>Tuan/Puan <strong>{name}</strong>,</p>
+        <p style='margin:0 0 14px;'>Pihak kami telah menerima permohonan untuk menetapkan semula kata laluan bagi akaun e-Operasi anda (<strong>{user}</strong>).</p>
+        <p style='margin:0 0 20px;'>Sila klik butang di bawah untuk menetapkan kata laluan baharu. Pautan ini sah sehingga <strong>{expiry}</strong> (waktu Malaysia) dan hanya boleh digunakan sekali.</p>
+        <p style='margin:0 0 22px;text-align:center;'>
+          <a href='{link}' style='display:inline-block;padding:12px 28px;background:#2F62B5;color:#FFFFFF;text-decoration:none;font-weight:700;border-radius:999px;'>Tetapkan Semula Kata Laluan</a>
+        </p>
+        <p style='margin:0 0 6px;font-size:12px;color:#5B6576;'>Sekiranya butang di atas tidak berfungsi, sila salin dan tampal pautan berikut ke dalam pelayar web anda:</p>
+        <p style='margin:0 0 20px;font-size:12px;word-break:break-all;'><a href='{link}' style='color:#2F62B5;'>{link}</a></p>
+        <p style='margin:0 0 14px;'>Sekiranya anda tidak membuat permohonan ini, sila abaikan e-mel ini. Kata laluan anda tidak akan berubah.</p>
+        <p style='margin:0 0 4px;'>Sekian, terima kasih.</p>
+        <p style='margin:0 0 20px;'><strong>Pentadbir Sistem e-Operasi</strong><br>Pejabat Pendidikan Daerah Johor Bahru</p>
+      </td>
+    </tr>
+    <tr>
+      <td style='padding:16px 28px 20px;border-top:1px solid #E3E8F0;font-size:12.5px;line-height:1.6;color:#5B6576;'>
+        <p style='margin:0 0 8px;'><strong>English:</strong> We received a request to reset the password for your e-Operasi account (<strong>{user}</strong>). Use the button above to set a new password. The link is valid until <strong>{expiry}</strong> (Malaysia time) and can be used only once. If you did not make this request, please ignore this email; your password will not change.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style='padding:14px 28px 20px;background:#F8FAFC;border-top:1px solid #E3E8F0;border-radius:0 0 16px 16px;font-size:11px;line-height:1.6;color:#748198;'>
+        E-mel ini dijana secara automatik oleh sistem e-Operasi. Sila jangan balas e-mel ini.<br>
+        This is an automated message. Please do not reply.<br>
+        Pertanyaan / Enquiries: <a href='mailto:helpeoperasi@moe.gov.my' style='color:#2F62B5;'>helpeoperasi@moe.gov.my</a>
+      </td>
+    </tr>
+  </table>
+</div>";
+    }
+
 }

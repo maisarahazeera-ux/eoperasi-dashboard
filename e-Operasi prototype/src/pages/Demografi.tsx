@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
-import { GraduationCap, Loader2, AlertTriangle } from "lucide-react";
+import { GraduationCap, Loader2, AlertTriangle, Cake, BarChart3, Users } from "lucide-react";
+import { StatTile, StatRow, CardTitle } from "../components/ui";
 import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { NAVY, TEAL, ORANGE, CHART_COLORS } from "../lib/colors";
@@ -145,8 +146,9 @@ export default function Demografi() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
+        title={t("titleDemografi")}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}
@@ -155,39 +157,36 @@ export default function Demografi() {
         employmentStatuses={employmentStatuses}
       />
 
-      <main style={{ flex: 1, overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{t("dmTitle")}</h1>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>{filtered.length.toLocaleString(locale)} {t("dmInView")}</p>
-        </div>
+      <main className="mac-main">
+        <p style={{ fontSize: 13, color: "var(--soft-muted)", margin: "0 0 14px" }}>{filtered.length.toLocaleString(locale)} {t("dmInView")}</p>
 
         {/* Stat row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 24 }}>
-          <StatCard label={t("dmAvgAge")} value={`${avgAge} ${t("dmYears")}`} accent={NAVY} />
-          <StatCard label={t("dmMedianAge")} value={`${medAge} ${t("dmYears")}`} accent={TEAL} />
-          <StatCard label={t("dmPctFemale")} value={`${pctFemale}%`} accent={ORANGE} />
-        </div>
+        <StatRow>
+          <StatTile icon={<Cake size={20} />} tone="blue" label={t("dmAvgAge")} value={`${avgAge} ${t("dmYears")}`} />
+          <StatTile icon={<BarChart3 size={20} />} tone="teal" label={t("dmMedianAge")} value={`${medAge} ${t("dmYears")}`} />
+          <StatTile icon={<Users size={20} />} tone="rose" label={t("dmPctFemale")} value={`${pctFemale}%`} />
+        </StatRow>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="soft-grid">
           {/* Age histogram — full width */}
           <ChartCard title={t("dmChartAgeHist")} wide>
-            <ResponsiveContainer width="100%" height={270}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={ageData} margin={{ left: 0, right: 16 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [Number(v).toLocaleString(locale), t("ovTeachersUnit")]} cursor={{ fill: "#f0f9ff" }} />
+                <Tooltip formatter={(v) => [Number(v).toLocaleString(locale), t("ovTeachersUnit")]} cursor={{ fill: "var(--hover)" }} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {ageData.map((_, i) => <Cell key={i} fill={i < 2 ? TEAL : i < 5 ? NAVY : ORANGE} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 8, textAlign: "center" }}>{t("dmAgeAxis")}</div>
+            <div style={{ fontSize: 11, color: "var(--soft-faint)", marginTop: 8, textAlign: "center" }}>{t("dmAgeAxis")}</div>
           </ChartCard>
 
           {/* Race bar */}
           <ChartCard title={t("dmChartRace")}>
-            <ResponsiveContainer width="100%" height={270}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={raceData} layout="vertical" margin={{ left: 8, right: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -215,8 +214,8 @@ export default function Demografi() {
                 {qualData.map((d) => (
                   <div key={d.fullName} title={d.fullName} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 3, background: d.fill, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: "#374151", flex: 1 }}>{d.name}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "#111827" }}>{((d.value / n) * 100).toFixed(1)}%</span>
+                    <span style={{ fontSize: 11, color: "var(--soft-text-2)", flex: 1 }}>{d.name}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--soft-text)" }}>{((d.value / n) * 100).toFixed(1)}%</span>
                   </div>
                 ))}
               </div>
@@ -234,7 +233,7 @@ export default function Demografi() {
                       cx="50%" cy="50%" innerRadius={44} outerRadius={62} dataKey="value" startAngle={90} endAngle={-270}
                     >
                       <Cell fill={TEAL} />
-                      <Cell fill="#e5e7eb" />
+                      <Cell fill="#E4E9F1" className="pie-track" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -245,11 +244,11 @@ export default function Demografi() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
                   <GraduationCap size={16} color={TEAL} />
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "#111827" }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--soft-text)" }}>
                     {ikhtisasCount.toLocaleString(locale)} {t("dmIkhtisasCount")}
                   </span>
                 </div>
-                <p style={{ fontSize: 11.5, color: "#6b7280", margin: 0, lineHeight: 1.5, maxWidth: 240 }}>
+                <p style={{ fontSize: 11.5, color: "var(--soft-muted)", margin: 0, lineHeight: 1.5, maxWidth: 240 }}>
                   {t("dmIkhtisasDesc")} {filtered.length.toLocaleString(locale)} {t("dmTeachersWord")}.
                 </p>
               </div>
@@ -269,19 +268,10 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
-  return (
-    <div className="card" style={{ padding: "16px 20px", borderLeft: `4px solid ${accent}` }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "#111827" }}>{value}</div>
-      <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{label}</div>
-    </div>
-  );
-}
-
 function ChartCard({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="card" style={{ padding: "16px 18px", gridColumn: wide ? "1 / -1" : undefined }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: NAVY, marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #f3f4f6" }}>{title}</div>
+    <div className={`card soft-card${wide ? " wide" : ""}`}>
+      <CardTitle>{title}</CardTitle>
       {children}
     </div>
   );
