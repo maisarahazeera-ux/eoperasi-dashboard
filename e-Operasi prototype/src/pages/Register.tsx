@@ -53,11 +53,11 @@ export default function Register({ onSwitchToLogin }: RegisterProps) {
           backgroundImage: `url(${authBg})`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          filter: "blur(14px)",
+          filter: "blur(3px)",
           transform: "scale(1.1)",
         }}
       />
-      <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.55)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.30)" }} />
 
       <Header />
       <Footer />
