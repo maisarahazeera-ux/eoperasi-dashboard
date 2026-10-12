@@ -44,9 +44,16 @@ export default function ResetPassword({ token, onDone }: ResetPasswordProps) {
         submitLabel={t("hantar")}
         submittingLabel={t("pleaseWait")}
         onSubmit={handleSubmit}
+        requiredNote={t("requiredNote")}
         fields={[
-          { id: "password", label: t("fieldNewPassword"), type: "password", value: password, onChange: setPassword },
-          { id: "confirm", label: t("fieldConfirmPassword"), type: "password", value: confirmPassword, onChange: setConfirmPassword },
+          {
+            id: "password", label: t("fieldNewPassword"), type: "password", value: password, onChange: setPassword, required: true,
+            hint: t("hintPassLen"), hintOk: password.length >= 6,
+          },
+          {
+            id: "confirm", label: t("fieldConfirmPassword"), type: "password", value: confirmPassword, onChange: setConfirmPassword, required: true,
+            hint: t("hintPassMatch"), hintOk: confirmPassword.length > 0 && confirmPassword === password,
+          },
         ]}
       />
     </AuthLayout>

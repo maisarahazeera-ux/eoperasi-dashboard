@@ -22,6 +22,46 @@ namespace EOperasiApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EOperasiApi.Models.DataImport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("DataDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FileNames")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImportedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImportedByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TeacherCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataImports");
+                });
+
             modelBuilder.Entity("EOperasiApi.Models.School", b =>
                 {
                     b.Property<int>("Id")

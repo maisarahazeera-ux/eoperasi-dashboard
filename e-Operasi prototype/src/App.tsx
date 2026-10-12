@@ -14,9 +14,11 @@ import Gred from "./pages/Gred";
 import Subjek from "./pages/Subjek";
 import Persaraan from "./pages/Persaraan";
 import Profile from "./pages/Profile";
+import KemaskiniData from "./pages/KemaskiniData";
 
 export default function App() {
-  const { token, username, fullName, logout } = useAuth();
+  const { token, username, fullName, role, logout } = useAuth();
+  const isAdmin = role === "admin";
   const { t } = useLanguage();
   const [activePage, setActivePage] = useState<Page>("overview");
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -55,6 +57,7 @@ export default function App() {
         onNavigate={setActivePage}
         onLogout={() => setConfirmLogout(true)}
         displayName={fullName || username || ""}
+        isAdmin={isAdmin}
       />
 
       <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -65,6 +68,7 @@ export default function App() {
         {activePage === "subjek"      && <Subjek />}
         {activePage === "persaraan"   && <Persaraan />}
         {activePage === "profile"     && <Profile />}
+        {activePage === "kemaskini-data" && isAdmin && <KemaskiniData />}
       </div>
 
       {confirmLogout && (

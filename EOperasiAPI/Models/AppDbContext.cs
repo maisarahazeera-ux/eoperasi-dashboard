@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
+    public DbSet<DataImport> DataImports => Set<DataImport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

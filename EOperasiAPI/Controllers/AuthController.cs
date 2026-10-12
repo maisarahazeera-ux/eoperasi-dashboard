@@ -81,6 +81,10 @@ public class AuthController : ControllerBase
         {
             return BadRequest(new { message = "Email is required" });
         }
+        if (string.IsNullOrWhiteSpace(request.Jawatan) || string.IsNullOrWhiteSpace(request.Sektor))
+        {
+            return BadRequest(new { message = "Position and sector are required" });
+        }
 
         var usernameTaken = await _db.Users.AnyAsync(u => u.Username == request.Username);
         if (usernameTaken)
@@ -100,6 +104,9 @@ public class AuthController : ControllerBase
             Role = "staff",
             FullName = request.FullName,
             Email = request.Email,
+            Jawatan = CleanText(request.Jawatan, 150),
+            JabatanBahagian = CleanText(request.JabatanBahagian, 150),
+            Sektor = CleanText(request.Sektor, 150),
         };
 
         _db.Users.Add(user);
@@ -270,4 +277,11 @@ public class AuthController : ControllerBase
 </div>";
     }
 
+    // Trim, treat blank as null, and cap the length (same rule as ProfileController).
+    private static string? CleanText(string? value, int maxLength)
+    {
+        var v = value?.Trim();
+        if (string.IsNullOrEmpty(v)) return null;
+        return v.Length > maxLength ? v[..maxLength] : v;
+    }
 }

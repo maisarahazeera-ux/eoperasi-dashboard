@@ -48,7 +48,7 @@ export default function ForgotPassword({ onBackToLogin }: ForgotPasswordProps) {
           submittingLabel={t("pleaseWait")}
           onSubmit={handleSubmit}
           fields={[
-            { id: "email", label: t("fieldEmelReg"), type: "email", value: email, onChange: setEmail },
+            { id: "email", label: t("fieldEmelReg"), type: "email", value: email, onChange: setEmail, required: true },
           ]}
         />
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Check, Info } from "lucide-react";
 
 // Colours follow the Clean & Soft theme (blue accent, green on success).
 const NAVY = "#2F62B5";
@@ -13,6 +13,12 @@ export interface LiquidField {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  /** Shows a red "*" after the label. */
+  required?: boolean;
+  /** Small note shown under the pill, e.g. "At least 6 characters". */
+  hint?: string;
+  /** When true the hint turns green with a tick (rule satisfied). */
+  hintOk?: boolean;
 }
 
 interface LiquidAuthProps {
@@ -23,6 +29,8 @@ interface LiquidAuthProps {
   autoOpen?: boolean;
   submitLabel?: string;
   submittingLabel?: string;
+  /** Legend shown beside the submit button when any field is required. */
+  requiredNote?: string;
 }
 
 type Stage = "idle" | "open" | "submitting" | "success";
@@ -33,6 +41,8 @@ const SNAP_GAP = 18; // gap (px) at which a neck pinches off — must stay below
 const NECK_VIEW_W = 280;
 const SPRING_K = 55;
 const SPRING_DAMPING = 11;
+const REQUIRED_RED = "#FF6B6B"; // bright enough to read on the blue pill
+const HINT_SPACE = 20; // extra room when the LAST field has a hint
 
 function buildNeckPath(topEdgeY: number, bottomEdgeY: number): string {
   const gap = bottomEdgeY - topEdgeY;
@@ -63,6 +73,7 @@ export default function LiquidAuth({
   autoOpen = false,
   submitLabel = "Hantar",
   submittingLabel = "Sila tunggu...",
+  requiredNote,
 }: LiquidAuthProps) {
   const [stage, setStage] = useState<Stage>(autoOpen ? "open" : "idle");
   const [error, setError] = useState<string | null>(null);
@@ -130,10 +141,13 @@ export default function LiquidAuth({
   const t = Math.max(0, Math.min(1, (renderSpan - closedSpan) / (openSpan - closedSpan || 1)));
   const centers = fields.map((_, i) => PILL_H / 2 + t * i * (PILL_H + GAP));
   const revealed = t > 0.55;
+  const lastHasHint = !!fields[N - 1]?.hint;
+  const boxH = Math.max(renderSpan, PILL_H) + (lastHasHint ? t * HINT_SPACE : 0);
+  const anyRequired = fields.some((f) => f.required);
 
   return (
     <div>
-      <div style={{ position: "relative", height: Math.max(renderSpan, PILL_H) }}>
+      <div style={{ position: "relative", height: boxH }}>
         {/* Necks only — real HTML divs (below) handle the pills themselves,
             so their border-radius is never at the mercy of SVG viewBox scaling. */}
         <svg
@@ -207,6 +221,7 @@ export default function LiquidAuth({
               <div style={{ width: "100%" }}>
                 <div style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 1 }}>
                   {f.label}
+                  {f.required && <span style={{ color: REQUIRED_RED, marginLeft: 3, fontSize: 11 }}>*</span>}
                 </div>
                 <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                   <input
@@ -241,13 +256,30 @@ export default function LiquidAuth({
             </div>
           </div>
         ))}
+
+        {/* Hints sit in the gap under their pill, only once the form is open */}
+        {fields.map((f, i) => f.hint ? (
+          <div
+            key={`hint-${f.id}`}
+            style={{
+              position: "absolute", left: 20, right: 0, top: centers[i] + PILL_H / 2 + 4,
+              fontSize: 11, lineHeight: "14px", display: "flex", alignItems: "center", gap: 4,
+              color: f.hintOk ? "var(--ok-ink)" : "var(--soft-text-2)",
+              opacity: revealed ? 0.9 : 0, transition: "opacity .2s ease, color .2s ease",
+              pointerEvents: "none",
+            }}
+          >
+            {f.hintOk ? <Check size={12} strokeWidth={3} /> : <Info size={12} />}
+            {f.hint}
+          </div>
+        ) : null)}
       </div>
 
       {error && <div style={{ color: "var(--bad-ink)", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{error}</div>}
 
       <div
         style={{
-          display: "flex", justifyContent: "flex-end",
+          display: "flex", justifyContent: anyRequired && requiredNote ? "space-between" : "flex-end", alignItems: "center",
           marginTop: isOpen ? 14 : 0,
           maxHeight: isOpen ? 60 : 0,
           overflow: "hidden",
@@ -255,6 +287,11 @@ export default function LiquidAuth({
           transition: "opacity .2s ease .1s, margin-top .2s ease, max-height .2s ease",
         }}
       >
+        {anyRequired && requiredNote && (
+          <span style={{ fontSize: 11.5, color: "var(--soft-text-2)" }}>
+            <span style={{ color: "var(--bad-ink)", fontWeight: 700 }}>*</span> {requiredNote}
+          </span>
+        )}
         <button
           type="button"
           onClick={handleSubmit}

@@ -63,10 +63,10 @@ export default function Login({ onSwitchToRegister, onForgotPassword }: LoginPro
         submittingLabel={t("pleaseWait")}
         onSubmit={handleSubmit}
         fields={[
-          { id: "username", label: t("fieldUsername"), value: username, onChange: setUsername },
+          { id: "username", label: t("fieldUsername"), value: username, onChange: setUsername, required: true },
           {
             id: "password", label: t("fieldPassword"), type: "password",
-            value: password, onChange: setPassword,
+            value: password, onChange: setPassword, required: true,
           },
         ]}
       />

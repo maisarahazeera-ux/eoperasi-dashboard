@@ -1,5 +1,5 @@
 import { useLanguage } from "../context/LanguageContext";
-import { DATA_DATE } from "../lib/dataInfo";
+import { useDataDate } from "../lib/dataInfo";
 
 /**
  * Page heading: "Data SEPADU · dikemas kini 2 Sep 2026" above a big title,
@@ -8,7 +8,8 @@ import { DATA_DATE } from "../lib/dataInfo";
 export default function PageHero({ title, children }: { title: string; children?: React.ReactNode }) {
   const { t, lang } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "ms-MY";
-  const date = new Date(DATA_DATE).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  const dataDate = useDataDate();
+  const date = new Date(dataDate).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div className="soft-hero">

@@ -213,3 +213,82 @@ export const updatePreferences = (
   ...prefs,
   textSize: prefs.textSize === undefined ? undefined : String(prefs.textSize),
 });
+
+// ---------- SEPADU data (Kemas Kini Data) ----------
+
+export interface DataInfo {
+  /** Date the current data was extracted from SEPADU (null = never uploaded through the Admin page). */
+  dataDate: string | null;
+  importedAt: string | null;
+  importedByName: string | null;
+  teacherCount: number;
+}
+
+/** A problem found in the uploaded files. `code` is translated on the page. */
+export interface DataIssue {
+  code: string;
+  file: string | null;
+  count: number;
+  details: string[];
+}
+
+export interface DataPreview {
+  ok: boolean;
+  files: { fileName: string; rows: number; schoolTypes: Record<string, number> }[];
+  errors: DataIssue[];
+  warnings: DataIssue[];
+  detectedDataDate: string | null;
+  teacherCount: number;
+  schoolCount: number;
+  subjectCount: number;
+  currentTeacherCount: number;
+  currentDataDate: string | null;
+  newTeachers: number;
+  removedTeachers: number;
+  byType: { schoolType: string; current: number; incoming: number }[];
+}
+
+export interface DataImportRecord {
+  id: number;
+  dataDate: string;
+  importedAt: string;
+  importedBy: string;
+  importedByName: string;
+  fileNames: string;
+  teacherCount: number;
+  schoolCount: number;
+  subjectCount: number;
+}
+
+export const getDataInfo = (token: string | null) =>
+  profileRequest<DataInfo>(token, "/data/info", "GET");
+
+export const getDataHistory = (token: string | null) =>
+  profileRequest<DataImportRecord[]>(token, "/data/history", "GET");
+
+/** Sends files as multipart/form-data. `status` is 0 when the server can't be reached. */
+async function postFiles<T>(token: string | null, path: string, files: File[], fields: Record<string, string> = {}) {
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    handleUnauthorized(res);
+    const data = (await res.json().catch(() => null)) as T | null;
+    return { status: res.status, data };
+  } catch {
+    return { status: 0, data: null as T | null };
+  }
+}
+
+/** Checks the files and compares them with the current data. Changes nothing. */
+export const previewData = (token: string | null, files: File[]) =>
+  postFiles<DataPreview>(token, "/data/preview", files);
+
+/** Replaces ALL teacher data with the uploaded files. */
+export const importData = (token: string | null, files: File[], dataDate: string) =>
+  postFiles<{ preview: DataPreview; info: DataInfo | null }>(token, "/data/import", files, { dataDate });

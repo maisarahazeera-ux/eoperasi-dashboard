@@ -154,7 +154,7 @@ body,
   margin-bottom: 4px;
 }
 
-select, input[type="text"], input[type="password"] {
+select, input[type="text"], input[type="password"], input[type="date"] {
   font-family: inherit;
   font-size: 13px;
   color: var(--text-primary);
@@ -166,7 +166,7 @@ select, input[type="text"], input[type="password"] {
   outline: none;
   transition: border-color 0.15s;
 }
-select:focus, input[type="text"]:focus, input[type="password"]:focus {
+select:focus, input[type="text"]:focus, input[type="password"]:focus, input[type="date"]:focus {
   border-color: #2F62B5;
   box-shadow: 0 0 0 3px rgba(47,98,181,0.18);
 }

@@ -1,8 +1,8 @@
-import { LayoutGrid, Search, Users, Award, BookOpen, UserMinus, LogOut, Building2, Moon, Sun } from "lucide-react";
+import { LayoutGrid, Search, Users, Award, BookOpen, UserMinus, LogOut, Building2, Moon, Sun, DatabaseZap } from "lucide-react";
 import { useTheme } from "../lib/theme";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
 
-export type Page = "overview" | "carian-guru" | "demografi" | "gred" | "subjek" | "persaraan" | "profile";
+export type Page = "overview" | "carian-guru" | "demografi" | "gred" | "subjek" | "persaraan" | "profile" | "kemaskini-data";
 
 const TABS: { id: Page; labelKey: DictKey; Icon: React.ElementType }[] = [
   { id: "overview",    labelKey: "navOverview",   Icon: LayoutGrid },
@@ -13,15 +13,21 @@ const TABS: { id: Page; labelKey: DictKey; Icon: React.ElementType }[] = [
   { id: "persaraan",   labelKey: "navPersaraan",  Icon: UserMinus },
 ];
 
+// Shown only to admins (the API also refuses non-admins).
+const ADMIN_TABS: typeof TABS = [
+  { id: "kemaskini-data", labelKey: "navKemaskiniData", Icon: DatabaseZap },
+];
+
 interface Props {
   active: Page;
   onNavigate: (p: Page) => void;
   onLogout: () => void;
   displayName: string;
+  isAdmin?: boolean;
 }
 
 /** White top bar: logo on the left, pill tabs in the middle, language + profile on the right. */
-export default function TopNav({ active, onNavigate, onLogout, displayName }: Props) {
+export default function TopNav({ active, onNavigate, onLogout, displayName, isAdmin = false }: Props) {
   const { t, lang, setLang } = useLanguage();
   const { theme, toggle } = useTheme();
   const initial = (displayName.trim()[0] || "?").toUpperCase();
@@ -37,7 +43,7 @@ export default function TopNav({ active, onNavigate, onLogout, displayName }: Pr
       </div>
 
       <nav className="soft-tabs" aria-label="Menu">
-        {TABS.map(({ id, labelKey, Icon }) => (
+        {(isAdmin ? [...TABS, ...ADMIN_TABS] : TABS).map(({ id, labelKey, Icon }) => (
           <button
             key={id}
             type="button"
