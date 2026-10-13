@@ -5,7 +5,8 @@ import {
 } from "recharts";
 import { Award as AwardIcon, Star, Loader2, AlertTriangle, TrendingUp, UserPlus } from "lucide-react";
 import { StatTile, StatRow, CardTitle, PillToggle } from "../components/ui";
-import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
+import FilterSidebar, { DEFAULT_FILTERS, describeFilters, type Filters } from "../lib/FilterSidebar";
+import { countTable, type Report } from "../lib/report";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { type Teacher } from "../lib/api";
 import { NAVY, TEAL, ORANGE, CHART_COLORS, SCHOOL_TYPE_CHART_COLORS, CHART } from "../lib/colors";
@@ -144,10 +145,41 @@ export default function Gred() {
 
   const n = filtered.length || 1;
 
+  const buildReport = (): Report => {
+    const total = filtered.length;
+    const h = { count: t("rpColCount"), pct: t("rpColPct") };
+    const basisLabel = basis === "hakiki" ? t("grHakiki") : t("grPenyandang");
+    // Full special-duty list here (the chart shows the top 10 only).
+    const dutyAll: Record<string, number> = {};
+    withDuty.forEach((x) => { dutyAll[x.tugasKhas!] = (dutyAll[x.tugasKhas!] || 0) + 1; });
+    return {
+      title: `${t("titleGred")} (${basisLabel})`,
+      filters: [`${t("grBasis")}: ${basisLabel}`, ...describeFilters(filters, t)],
+      tables: [
+        {
+          name: t("grColGrade"), title: `${t("grSummary")} (${basisLabel})`,
+          columns: [{ header: t("grColGrade"), width: 12 }, { header: h.count, format: "int", width: 15 }, { header: h.pct, format: "pct", width: 11 }, { header: t("grColGroup"), width: 34 }],
+          rows: byGred.map((d) => [d.name, d.count, total ? d.count / total : 0, t(gradeGroup(d.name))]),
+          totalColumns: [1],
+        },
+        {
+          name: t("filterSchoolType"), title: t("grChartByType"),
+          columns: [{ header: t("grColGrade"), width: 12 }, ...presentTypes.map((ty) => ({ header: ty, format: "int" as const, width: 11 })), { header: t("rpTotal"), format: "int", width: 11 }],
+          rows: stackedByType.map((r) => [r.name as string, ...presentTypes.map((ty) => r[ty] as number), presentTypes.reduce((s, ty) => s + (r[ty] as number), 0)]),
+          totalColumns: [...presentTypes.map((_, i) => i + 1), presentTypes.length + 1],
+        },
+        countTable(t("cgCemerlang"), t("grCemerlang"), t("rpColBidang"), cemerlangByBidang.map((d) => [d.name, d.count]), cemerlangTeachers.length, h, 40),
+        countTable(t("cgTugasKhas"), t("grTugasKhas"), t("cgTugasKhas"),
+          Object.entries(dutyAll).sort((a, b) => b[1] - a[1]), withDuty.length, h, 50),
+      ],
+    };
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
         title={t("titleGred")}
+        report={buildReport}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}

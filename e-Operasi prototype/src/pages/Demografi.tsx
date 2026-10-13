@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { GraduationCap, Loader2, AlertTriangle, Cake, BarChart3, Users } from "lucide-react";
 import { StatTile, StatRow, CardTitle } from "../components/ui";
-import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
+import FilterSidebar, { DEFAULT_FILTERS, describeFilters, type Filters } from "../lib/FilterSidebar";
+import { countTable, type Report } from "../lib/report";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { NAVY, TEAL, ORANGE, CHART_COLORS } from "../lib/colors";
 import { valueLabel } from "../lib/labels";
@@ -145,10 +146,42 @@ export default function Demografi() {
     );
   }
 
+  const buildReport = (): Report => {
+    const total = filtered.length;
+    const h = { count: t("rpColCount"), pct: t("rpColPct") };
+    // Full race list here (the chart folds small groups into "Lain-lain").
+    const raceAll: Record<string, number> = {};
+    filtered.forEach((x) => { const k = x.race || "-"; raceAll[k] = (raceAll[k] || 0) + 1; });
+    return {
+      title: t("titleDemografi"),
+      filters: describeFilters(filters, t),
+      tables: [
+        {
+          name: t("rpSummary"), title: t("rpSummary"),
+          columns: [{ header: t("rpColItem"), width: 34 }, { header: t("rpColValue"), width: 14 }],
+          rows: [
+            [t("ovTotalTeachers"), total],
+            [`${t("dmAvgAge")} (${t("dmYears")})`, avgAge],
+            [`${t("dmMedianAge")} (${t("dmYears")})`, medAge],
+            [t("dmPctFemale"), `${pctFemale}%`],
+            [t("dmPctIkhtisas"), `${pctIkhtisas}%`],
+          ],
+        },
+        countTable(t("dmChartAge"), t("dmChartAgeHist"), t("rpColAgeGroup"), ageData.map((d) => [d.name, d.count]), total, h),
+        countTable(t("dmChartRace"), t("dmChartRace"), t("cgRace"),
+          Object.entries(raceAll).sort((a, b) => b[1] - a[1]).map(([k, c]) => [k === "-" ? t("unknown") : valueLabel(k, lang), c]), total, h),
+        countTable(t("dmChartQual"), t("dmChartQualProfile"), t("cgQualification"), qualData.map((d) => [d.fullName, d.value]), total, h, 70),
+        countTable(t("dmChartIkhtisas"), t("dmChartIkhtisas"), t("rpColCategory"),
+          [[t("rpYes"), ikhtisasCount], [t("rpNo"), total - ikhtisasCount]], total, h),
+      ],
+    };
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
         title={t("titleDemografi")}
+        report={buildReport}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}

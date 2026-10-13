@@ -6,6 +6,9 @@ import { employmentLabel } from "./labels";
 import { shortSchoolName } from "./schoolName";
 import SearchableSelect from "./SearchableSelect";
 import PageHero from "../components/PageHero";
+import ReportButton from "../components/ReportButton";
+import type { Report } from "./report";
+import type { DictKey } from "../context/LanguageContext";
 
 export interface Filters {
   schoolType: string;
@@ -31,6 +34,19 @@ interface Props {
   schoolsByType?: Record<string, string[]>;
   subjects?: readonly string[];
   employmentStatuses?: readonly string[];
+  /** When given, a "Muat Turun" button (PDF / Excel) is shown beside the filters. */
+  report?: () => Report;
+}
+
+/** The filters in force as readable lines for a report, e.g. "Jenis Sekolah: SMK". */
+export function describeFilters(f: Filters, t: (k: DictKey) => string): string[] {
+  const out: string[] = [];
+  if (f.schoolType) out.push(`${t("filterSchoolType")}: ${f.schoolType}`);
+  if (f.schoolName) out.push(`${t("filterSchoolName")}: ${f.schoolName}`);
+  if (f.employmentStatus) out.push(`${t("filterEmployment")}: ${employmentLabel(f.employmentStatus, t)}`);
+  if (f.gender) out.push(`${t("filterGender")}: ${f.gender === "L" ? t("genderL") : t("genderP")}`);
+  if (f.subject) out.push(`${t("filterSubject")}: ${f.subject}`);
+  return out;
 }
 
 /**
@@ -45,6 +61,7 @@ export default function FilterSidebar({
   schoolsByType = SCHOOLS_BY_TYPE,
   subjects = SUBJECTS,
   employmentStatuses = EMPLOYMENT_STATUS,
+  report,
 }: Props) {
   const { t } = useLanguage();
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => onChange({ ...filters, [k]: v });
@@ -118,6 +135,8 @@ export default function FilterSidebar({
             <RotateCcw size={12} /> {t("filterReset")}
           </button>
         )}
+
+        {report && <ReportButton getReport={report} />}
       </PageHero>
 
       {open && (

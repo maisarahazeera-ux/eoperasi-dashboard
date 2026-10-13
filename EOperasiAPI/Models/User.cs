@@ -9,6 +9,16 @@ public class User
     public string FullName { get; set; } = "";
     public string Email { get; set; } = "";
 
+    // Account status, see UserStatus below. Existing accounts are "active".
+    public string Status { get; set; } = UserStatus.Active;
+    public DateTime? CreatedAt { get; set; }
+    public DateTime? StatusUpdatedAt { get; set; }
+    public string? StatusUpdatedBy { get; set; }   // username of the admin, or "system"
+
+    // Email verification (link sent after registering).
+    public string? EmailVerifyTokenHash { get; set; }
+    public DateTime? EmailVerifyExpiresAt { get; set; }
+
     // Work details, filled in by the user on the Profile page.
     public string? Jawatan { get; set; }
     public string? JabatanBahagian { get; set; }
@@ -31,4 +41,27 @@ public class User
     // Password reset
     public string? PasswordResetTokenHash { get; set; }
     public DateTime? PasswordResetExpiresAt { get; set; }
+}
+
+/// <summary>
+/// unverified -> (clicks email link) -> active   (official @moe.gov.my email)
+///                                   -> pending  (any other email; an admin must approve)
+/// active <-> deactivated (by an admin). Only "active" accounts can log in.
+/// </summary>
+public static class UserStatus
+{
+    public const string Unverified = "unverified";
+    public const string Pending = "pending";
+    public const string Active = "active";
+    public const string Deactivated = "deactivated";
+
+    /// <summary>Official KPM email: @moe.gov.my or any subdomain such as @jpnjohor.moe.gov.my.</summary>
+    public static bool IsOfficialEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        var at = email.Trim().LastIndexOf('@');
+        if (at < 1 || at == email.Trim().Length - 1) return false;
+        var domain = email.Trim()[(at + 1)..].ToLowerInvariant();
+        return domain == "moe.gov.my" || domain.EndsWith(".moe.gov.my");
+    }
 }

@@ -36,6 +36,7 @@ public static class SepaduParser
         "GRED PENYANDANG", "PENGISIAN", "TARAF JAWATAN",
         "TUGAS KHAS 1", "TUGAS KHAS 2", "TUGAS KHAS 3", "TUGAS KHAS 4", "TUGAS KHAS 5",
         "KEDUDUKAN PERKHIDMATAN", "TARIKH LANTIKAN PERTAMA", "DAERAH SEMASA",
+        "KOD SEKOLAH", "TARIKH LANTIKAN JAWATAN SEMASA", "TARIKH KHIDMAT SEKOLAH SEMASA",
         "STATUS VAKSIN", "JENIS VAKSIN", "TARIKH DOS1", "TARIKH DOS2",
     };
 
@@ -145,7 +146,7 @@ public static class SepaduParser
                 var schoolKey = Title(schoolName);
                 if (!schools.TryGetValue(schoolKey, out var school))
                 {
-                    school = new School { Name = schoolKey, Type = schoolType, District = row["DAERAH SEMASA"] ?? "" };
+                    school = new School { Code = row["KOD SEKOLAH"] ?? "", Name = schoolKey, Type = schoolType, District = row["DAERAH SEMASA"] ?? "" };
                     schools[schoolKey] = school;
                     result.Schools.Add(school);
                 }
@@ -241,6 +242,8 @@ public static class SepaduParser
             Religion = TitleOrNull(row["AGAMA"]),
             Nationality = row["WARGANEGARA"],
             FirstAppointmentDate = Date("TARIKH LANTIKAN PERTAMA"),
+            TarikhLantikanJawatanSemasa = Date("TARIKH LANTIKAN JAWATAN SEMASA"),
+            TarikhKhidmatSekolahSemasa = Date("TARIKH KHIDMAT SEKOLAH SEMASA"),
             Qualification = row["IKHTISAS"] ?? row["AKADEMIK TERTINGGI"],
             Opsyen1 = row["OPSYEN 1"],
             Opsyen2 = row["OPSYEN 2"],

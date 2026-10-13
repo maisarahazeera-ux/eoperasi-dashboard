@@ -24,6 +24,8 @@ public class Teacher
     public string? EmploymentStatus { get; set; }
     public string? ServiceStatus { get; set; }
     public DateOnly? FirstAppointmentDate { get; set; }
+    public DateOnly? TarikhLantikanJawatanSemasa { get; set; }   // appointed to the current post
+    public DateOnly? TarikhKhidmatSekolahSemasa { get; set; }    // started at the current school
     public string? Qualification { get; set; }
     public string? Opsyen1 { get; set; }
     public string? Opsyen2 { get; set; }

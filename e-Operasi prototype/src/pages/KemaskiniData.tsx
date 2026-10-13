@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   UploadCloud, FileText, X, CheckCircle2, AlertTriangle, XCircle, Loader2, History,
   Users, School, BookOpen, UserPlus, UserMinus, DatabaseZap, Info,
@@ -14,6 +14,8 @@ import { clearTeachersCache } from "../lib/useTeachers";
 import PageHero from "../components/PageHero";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { StatTile, StatRow, type Tone } from "../components/ui";
+import { ListToolbar, ListFooter, usePager } from "../components/ListControls";
+import { fixMonth } from "../lib/dates";
 
 const MAX_FILES = 4;
 const ACCEPT = ".txt,.xlsx";
@@ -46,7 +48,7 @@ export default function KemaskiniData() {
   const locale = lang === "en" ? "en-GB" : "ms-MY";
   const nf = (n: number) => n.toLocaleString(locale);
   const fmtDate = (iso: string | null) =>
-    iso ? new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }) : "-";
+    iso ? fixMonth(new Date(iso.length === 10 ? `${iso}T00:00:00` : iso).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })) : "-";
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -59,6 +61,7 @@ export default function KemaskiniData() {
   const [preview, setPreview] = useState<DataPreview | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [history, setHistory] = useState<DataImportRecord[] | null>(null);
+  const [historyQuery, setHistoryQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   // Local date (toISOString would give yesterday's date before 8 a.m. in Malaysia).
   const now = new Date();
@@ -68,6 +71,16 @@ export default function KemaskiniData() {
     getDataHistory(token).then((r) => setHistory(r.ok ? r.data : []));
   }, [token]);
   useEffect(loadHistory, [loadHistory]);
+
+  // Upload history list: search by uploader, file name or data date.
+  const historyShown = useMemo(() => {
+    const q = historyQuery.trim().toLowerCase();
+    return (history ?? []).filter((h) => !q || [h.importedByName, h.importedBy, h.fileNames, h.dataDate, fmtDate(h.dataDate)]
+      .some((v) => v?.toLowerCase().includes(q)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, historyQuery, locale]);
+  const historyPager = usePager(historyShown.length, historyShown);
+  const currentId = history?.[0]?.id;
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -316,6 +329,8 @@ export default function KemaskiniData() {
           ) : history.length === 0 ? (
             <div style={{ fontSize: 12.5, color: "var(--soft-muted)", padding: "6px 0" }}>{t("kdHistoryEmpty")}</div>
           ) : (
+            <>
+            <ListToolbar search={{ value: historyQuery, onChange: setHistoryQuery, placeholder: t("kdSearchHistory") }} pager={historyPager} />
             <div style={{ border: "1px solid var(--soft-line)", borderRadius: 12, overflow: "auto" }}>
               <table className="soft-table">
                 <thead>
@@ -328,11 +343,11 @@ export default function KemaskiniData() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((h, i) => (
+                  {historyPager.slice(historyShown).map((h) => (
                     <tr key={h.id}>
                       <td style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
                         {fmtDate(h.dataDate)}
-                        {i === 0 && <span className="tag tag-ok" style={{ marginLeft: 8 }}>{lang === "en" ? "Current" : "Semasa"}</span>}
+                        {h.id === currentId && <span className="tag tag-ok" style={{ marginLeft: 8 }}>{lang === "en" ? "Current" : "Semasa"}</span>}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>{fmtDateTime(h.importedAt)}</td>
                       <td>{h.importedByName || h.importedBy}</td>
@@ -340,9 +355,14 @@ export default function KemaskiniData() {
                       <td style={{ fontSize: 11.5, color: "var(--soft-muted)", maxWidth: 280 }}>{h.fileNames}</td>
                     </tr>
                   ))}
+                  {historyShown.length === 0 && (
+                    <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--soft-faint)", fontSize: 12.5 }}>{t("cgNoRecords")}</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
+            <ListFooter pager={historyPager} />
+            </>
           )}
         </Section>
       </div>

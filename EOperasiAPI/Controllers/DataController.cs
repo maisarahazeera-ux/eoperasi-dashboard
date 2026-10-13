@@ -23,17 +23,21 @@ public class DataController : ControllerBase
 
     private readonly AppDbContext _db;
     private readonly ILogger<DataController> _log;
+    private readonly ActivityLogger _activity;
 
-    public DataController(AppDbContext db, ILogger<DataController> log)
+    public DataController(AppDbContext db, ILogger<DataController> log, ActivityLogger activity)
     {
         _db = db;
         _log = log;
+        _activity = activity;
     }
 
     // ---------------------------------------------------------------- DTOs
 
     public class DataInfoDto
     {
+        /// <summary>Id of the latest upload; changes whenever new data is uploaded.</summary>
+        public int? ImportId { get; set; }
         public DateOnly? DataDate { get; set; }
         public DateTime? ImportedAt { get; set; }
         public string? ImportedByName { get; set; }
@@ -95,6 +99,7 @@ public class DataController : ControllerBase
         var last = await _db.DataImports.OrderByDescending(d => d.ImportedAt).FirstOrDefaultAsync();
         return Ok(new DataInfoDto
         {
+            ImportId = last?.Id,
             DataDate = last?.DataDate,
             ImportedAt = last?.ImportedAt,
             ImportedByName = last?.ImportedByName,
@@ -173,7 +178,7 @@ public class DataController : ControllerBase
         _db.Schools.AddRange(parsed.Schools);
         _db.Subjects.AddRange(parsed.Subjects);
         _db.Teachers.AddRange(parsed.Teachers);
-        _db.DataImports.Add(new DataImport
+        var record = new DataImport
         {
             DataDate = date.Value,
             ImportedAt = DateTime.UtcNow,
@@ -183,11 +188,14 @@ public class DataController : ControllerBase
             TeacherCount = parsed.Teachers.Count,
             SchoolCount = parsed.Schools.Count,
             SubjectCount = parsed.Subjects.Count,
-        });
+        };
+        _db.DataImports.Add(record);
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
         _db.ChangeTracker.AutoDetectChangesEnabled = true;
 
+        await _activity.LogAsync(ActivityAction.DataImport,
+            $"Data {date:yyyy-MM-dd} · {parsed.Teachers.Count} teachers · {record.FileNames}", username, fullName);
         _log.LogInformation("SEPADU import by {User}: {Teachers} teachers, data date {Date}, {Ms} ms",
             username, parsed.Teachers.Count, date, (DateTime.UtcNow - started).TotalMilliseconds);
 
@@ -196,8 +204,9 @@ public class DataController : ControllerBase
             Preview = preview,
             Info = new DataInfoDto
             {
+                ImportId = record.Id,
                 DataDate = date,
-                ImportedAt = DateTime.UtcNow,
+                ImportedAt = record.ImportedAt,
                 ImportedByName = fullName,
                 TeacherCount = parsed.Teachers.Count,
             },

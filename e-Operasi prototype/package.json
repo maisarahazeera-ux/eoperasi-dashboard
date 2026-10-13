@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:server": "vite build --mode server --outDir ../EOperasiAPI/wwwroot --emptyOutDir",
     "preview": "vite preview",
     "format": "oxfmt"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.43.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -1,5 +1,6 @@
 import { useLanguage } from "../context/LanguageContext";
 import { useDataDate } from "../lib/dataInfo";
+import { fixMonth } from "../lib/dates";
 
 /**
  * Page heading: "Data SEPADU · dikemas kini 2 Sep 2026" above a big title,
@@ -9,7 +10,7 @@ export default function PageHero({ title, children }: { title: string; children?
   const { t, lang } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "ms-MY";
   const dataDate = useDataDate();
-  const date = new Date(dataDate).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  const date = fixMonth(new Date(dataDate).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" }));
 
   return (
     <div className="soft-hero">

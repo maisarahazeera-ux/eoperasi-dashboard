@@ -27,6 +27,17 @@ public class RegisterRequest
     public string? Sektor { get; set; }
 }
 
+public class VerifyEmailRequest
+{
+    public string Token { get; set; } = "";
+}
+
+public class ResendVerificationRequest
+{
+    /// <summary>Username or email.</summary>
+    public string Login { get; set; } = "";
+}
+
 public class ForgotPasswordRequest
 {
     public string Email { get; set; } = "";

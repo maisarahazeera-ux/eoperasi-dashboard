@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { Loader2, AlertTriangle, Users, School, UserMinus, Cake } from "lucide-react";
-import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
+import FilterSidebar, { DEFAULT_FILTERS, describeFilters, type Filters } from "../lib/FilterSidebar";
+import { countTable, type Report } from "../lib/report";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { CHART, GENDER_CHART_COLORS, EMPLOYMENT_CHART_COLORS, heatColor } from "../lib/colors";
 import { shortSchoolName } from "../lib/schoolName";
 import { employmentLabel, sortEmploymentStatuses } from "../lib/labels";
 import { useLanguage } from "../context/LanguageContext";
+import { TeacherListModal, SchoolListModal } from "../components/ListModal";
 
 // 5-year age groups for the "Taburan Umur" chart.
 const AGE_GROUPS = [
@@ -41,6 +43,8 @@ export default function Overview() {
 
   const { teachers, error } = useTeachers();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  // List opened from a KPI card.
+  const [openList, setOpenList] = useState<"teachers" | "schools" | "retiring" | null>(null);
   const { schoolTypes, schoolsByType, subjects, employmentStatuses } = useTeacherLookups(teachers);
 
   const filtered = useMemo(() => {
@@ -112,6 +116,13 @@ export default function Overview() {
     };
   }, [filtered]);
 
+  // Teachers behind the "Akan Bersara (5 Tahun)" card (same rule as the count).
+  const retiringTeachers = useMemo(() => {
+    const now = new Date();
+    const limit = new Date(now.getFullYear() + 5, now.getMonth(), now.getDate());
+    return filtered.filter((x) => { if (!x.retirementDate) return false; const d = new Date(x.retirementDate); return d >= now && d <= limit; });
+  }, [filtered]);
+
   if (error) {
     return (
       <Centered color="#B3261E">
@@ -147,16 +158,47 @@ export default function Overview() {
     .sort((a, b) => b.count - a.count);
 
   const kpis = [
-    { label: t("ovTotalTeachers"), value: fmt(total), note: `${pctText(permanent, total)} ${t("ovPermanentShare")}`, Icon: Users, tint: "var(--tint-blue)", ink: "var(--ink-blue)" },
-    { label: t("ovTotalSchools"), value: fmt(stats.schools), note: `${stats.typeCount} ${t("ovSchoolTypesCount")}`, Icon: School, tint: "var(--tint-teal)", ink: "var(--ink-teal)" },
-    { label: t("ovRetiringSoon"), value: fmt(stats.retiring), note: `${pctText(stats.retiring, total)} ${t("ovOfTotal")}`, Icon: UserMinus, tint: "var(--tint-amber)", ink: "var(--ink-amber)" },
-    { label: t("ovAvgAge"), value: `${stats.avgAge.toFixed(1)} ${t("ovYears")}`, note: t("ovFromDob"), Icon: Cake, tint: "var(--tint-violet)", ink: "var(--ink-violet)" },
+    { label: t("ovTotalTeachers"), value: fmt(total), note: `${pctText(permanent, total)} ${t("ovPermanentShare")}`, Icon: Users, tint: "var(--tint-blue)", ink: "var(--ink-blue)", list: "teachers" as const },
+    { label: t("ovTotalSchools"), value: fmt(stats.schools), note: `${stats.typeCount} ${t("ovSchoolTypesCount")}`, Icon: School, tint: "var(--tint-teal)", ink: "var(--ink-teal)", list: "schools" as const },
+    { label: t("ovRetiringSoon"), value: fmt(stats.retiring), note: `${pctText(stats.retiring, total)} ${t("ovOfTotal")}`, Icon: UserMinus, tint: "var(--tint-amber)", ink: "var(--ink-amber)", list: "retiring" as const },
+    { label: t("ovAvgAge"), value: `${stats.avgAge.toFixed(1)} ${t("ovYears")}`, note: t("ovFromDob"), Icon: Cake, tint: "var(--tint-violet)", ink: "var(--ink-violet)", list: null },
   ];
+
+
+  const h = { count: t("rpColCount"), pct: t("rpColPct") };
+  const buildReport = (): Report => ({
+    title: t("titleOverview"),
+    filters: describeFilters(filters, t),
+    tables: [
+      {
+        name: t("rpSummary"), title: t("rpSummary"),
+        columns: [{ header: t("rpColItem"), width: 34 }, { header: t("rpColValue"), width: 14, format: "dec" }],
+        rows: [
+          [t("ovTotalTeachers"), total],
+          [t("ovTotalSchools"), stats.schools],
+          [t("ovRetiringSoon"), stats.retiring],
+          [`${t("ovAvgAge")} (${t("ovYears")})`, Math.round(stats.avgAge * 10) / 10],
+          [t("ovKodJawatanFilled"), stats.kodDiisi],
+          [t("ovKodJawatanVacant"), total - stats.kodDiisi],
+        ],
+      },
+      {
+        name: t("ovTopSchoolsTitle"), title: t("ovTopSchoolsTitle"),
+        columns: [{ header: t("rpColRank"), width: 11, format: "int" }, { header: t("filterSchoolName"), width: 48 }, { header: h.count, format: "int", width: 15 }, { header: h.pct, format: "pct", width: 11 }],
+        rows: stats.topSchools.map((s, i) => [i + 1, s.name, s.count, total ? s.count / total : 0]),
+      },
+      countTable(t("filterGender"), t("ovChartGender"), t("filterGender"), [[t("genderL"), stats.male], [t("genderP"), stats.female]], total, h),
+      countTable(t("filterEmployment"), t("ovChartEmployment"), t("filterEmployment"), employmentRows.map((r) => [r.label, r.count]), total, h),
+      countTable(t("filterSchoolType"), t("ovChartSchoolType"), t("filterSchoolType"), typeRows.map((r) => [r.name, r.count]), total, h),
+      countTable(t("ovAgeDist"), t("ovAgeDist"), t("rpColAgeGroup"), AGE_GROUPS.map((g, i) => [g.label, stats.ageBuckets[i]]), total, h),
+    ],
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
         title={t("titleOverview")}
+        report={buildReport}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}
@@ -170,8 +212,12 @@ export default function Overview() {
 
           {/* KPI cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-            {kpis.map(({ label, value, note, Icon, tint, ink }) => (
-              <div key={label} className="card" style={{ padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            {kpis.map(({ label, value, note, Icon, tint, ink, list }) => {
+              const Tag = list ? "button" : "div";
+              return (
+              <Tag key={label} type={list ? "button" : undefined} onClick={list ? () => setOpenList(list) : undefined}
+                className={`card${list ? " stat-click" : ""}`}
+                style={{ padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start", position: "relative", textAlign: "left", font: "inherit", color: "inherit", width: "100%" }}>
                 <div style={{ width: 42, height: 42, borderRadius: 12, flexShrink: 0, background: tint, color: ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Icon size={20} strokeWidth={2.2} />
                 </div>
@@ -180,9 +226,23 @@ export default function Overview() {
                   <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.1, whiteSpace: "nowrap" }}>{value}</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: ink }}>{note}</span>
                 </div>
-              </div>
-            ))}
+                {list && <span className="stat-action">{t("lsViewList")} →</span>}
+              </Tag>
+              );
+            })}
           </div>
+
+          {openList === "teachers" && (
+            <TeacherListModal title={t("ovTotalTeachers")} icon={<Users size={20} />} tone="blue"
+              teachers={filtered} filters={describeFilters(filters, t)} onClose={() => setOpenList(null)} />
+          )}
+          {openList === "schools" && (
+            <SchoolListModal teachers={filtered} icon={<School size={20} />} filters={describeFilters(filters, t)} onClose={() => setOpenList(null)} />
+          )}
+          {openList === "retiring" && (
+            <TeacherListModal kind="retire" title={t("ovRetiringSoon")} icon={<UserMinus size={20} />} tone="amber"
+              teachers={retiringTeachers} filters={describeFilters(filters, t)} onClose={() => setOpenList(null)} />
+          )}
 
           <div className="ov-grid-main">
             {/* Top 10 schools */}

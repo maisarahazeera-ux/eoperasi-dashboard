@@ -1,14 +1,17 @@
 import { useState, useMemo, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Loader2, Search } from "lucide-react";
-import { CardTitle, PillToggle, Tag, PagerButton } from "../components/ui";
-import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
+import { AlertTriangle, CheckCircle2, Clock, HelpCircle, Loader2, HeartHandshake } from "lucide-react";
+import { CardTitle, PillToggle, Tag } from "../components/ui";
+import { ListToolbar, ListFooter, usePager } from "../components/ListControls";
+import FilterSidebar, { DEFAULT_FILTERS, describeFilters, type Filters } from "../lib/FilterSidebar";
+import { countTable, type Report, type ReportTable } from "../lib/report";
+import ReportButton from "../components/ReportButton";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { type Teacher } from "../lib/api";
 import { NAVY, TEAL, ORANGE, schoolTypeChip } from "../lib/colors";
 import { shortSchoolName } from "../lib/schoolName";
 import { clean } from "../lib/labels";
-import { matchOpsyen, type MatchStatus, type MatchResult } from "../lib/subjectFamilies";
+import { matchOpsyen, type MatchStatus, type MatchResult, type NotTeachingReason } from "../lib/subjectFamilies";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
 
 type MatchFilter = "Semua" | MatchStatus;
@@ -23,11 +26,11 @@ function totalWaktu(x: Teacher): number {
 const WAKTU_LOW = 12;
 const WAKTU_HIGH = 28;
 const SUBJECT_TOP_N = 20;
-const PAGE_SIZE = 14;
 
 const STATUS_KEY: Record<MatchStatus, DictKey> = {
   "Sepadan": "sjMatch",
   "Tidak Sepadan": "sjMismatch",
+  "Tidak Mengajar": "sjNotTeaching",
   "Tidak Dapat Ditentukan": "sjUnknown",
 };
 
@@ -38,14 +41,12 @@ export default function Subjek() {
   const { schoolTypes, schoolsByType, subjects, employmentStatuses } = useTeacherLookups(teachers);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [matchFilter, setMatchFilter] = useState<MatchFilter>("Semua");
-  const [tablePage, setTablePage] = useState(1);
+  const [matchQuery, setMatchQuery] = useState("");
   const matchTableRef = useRef<HTMLDivElement>(null);
 
   // Unusual-load list controls
   const [loadQuery, setLoadQuery] = useState("");
   const [loadKind, setLoadKind] = useState<LoadKind>("all");
-  const [loadExpanded, setLoadExpanded] = useState(false);
-  const [loadPage, setLoadPage] = useState(1);
 
   // Work out the match status once per teacher (not on every render).
   const matchById = useMemo(() => {
@@ -78,6 +79,9 @@ export default function Subjek() {
   const mismatchCount = useMemo(() => filtered.filter((x) => statusOf(x) === "Tidak Sepadan").length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filtered, matchById]);
+  const counsellorCount = useMemo(() => filtered.filter((x) => statusOf(x) === "Tidak Mengajar").length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, matchById]);
   const unknownCount = useMemo(() => filtered.filter((x) => statusOf(x) === "Tidak Dapat Ditentukan").length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filtered, matchById]);
@@ -107,22 +111,26 @@ export default function Subjek() {
   }, [waktuAnomalies, loadQuery, loadKind]);
   const highCount = waktuAnomalies.filter((x) => totalWaktu(x) > WAKTU_HIGH).length;
   const lowCount = waktuAnomalies.length - highCount;
-  const loadPages = Math.max(1, Math.ceil(loadRows.length / PAGE_SIZE));
-  const loadShown = loadExpanded
-    ? loadRows.slice((loadPage - 1) * PAGE_SIZE, loadPage * PAGE_SIZE)
-    : loadRows.slice(0, 8);
+  const loadPager = usePager(loadRows.length, loadRows);
+  const loadShown = loadPager.slice(loadRows);
 
-  const tableRows = useMemo(() =>
-    filtered.filter((x) => matchFilter === "Semua" || statusOf(x) === matchFilter),
+  const tableRows = useMemo(() => {
+    const q = matchQuery.trim().toLowerCase();
+    return filtered.filter((x) => {
+      if (matchFilter !== "Semua" && statusOf(x) !== matchFilter) return false;
+      if (q && ![x.name, x.school, shortSchoolName(x.school), x.opsyen1, x.opsyen2, ...x.subjects.map((s) => s.name)]
+        .some((v) => v?.toLowerCase().includes(q))) return false;
+      return true;
+    });
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filtered, matchFilter, matchById]);
+    [filtered, matchFilter, matchQuery, matchById]);
 
-  const totalPages = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE));
-  const paginated = tableRows.slice((tablePage - 1) * PAGE_SIZE, tablePage * PAGE_SIZE);
+  const matchPager = usePager(tableRows.length, tableRows);
+  const paginated = matchPager.slice(tableRows);
 
   function handleMatchFilter(f: MatchFilter) {
     setMatchFilter(f);
-    setTablePage(1);
   }
 
   // Banner button: filter the matching table AND jump down to it,
@@ -156,12 +164,78 @@ export default function Subjek() {
 
   const n = filtered.length || 1;
 
+  // The two lists, shared by the full report and the per-table download buttons.
+  const statusText = (x: Teacher) => {
+    const m = matchById.get(x.id)!;
+    return m.reason ? `${t(STATUS_KEY[m.status])} (${t(`sjReason_${m.reason}` as DictKey)})` : t(STATUS_KEY[m.status]);
+  };
+  const loadTable = (rows: Teacher[], title: string): ReportTable => ({
+    name: t("rpShLoad"), title,
+    columns: [{ header: t("sjColName"), width: 36 }, { header: t("sjColSchool"), width: 40 }, { header: t("sjColType"), width: 9 }, { header: t("cgTotalHours"), width: 13, format: "int" }, { header: "Status", width: 14 }],
+    rows: rows.map((x) => [x.name, x.school, x.schoolType, totalWaktu(x), totalWaktu(x) > WAKTU_HIGH ? t("sjHigh") : t("sjLow")]),
+  });
+  const matchTable = (rows: Teacher[], title: string): ReportTable => ({
+    name: t("rpShMatchList"), title,
+    columns: [
+      { header: t("sjColName"), width: 36 }, { header: t("sjColStatus"), width: 22 }, { header: t("sjColSchool"), width: 40 }, { header: t("sjColType"), width: 9 },
+      { header: t("sjColOp1"), width: 26 }, { header: t("sjColOp2"), width: 26 },
+      { header: t("sjColSub1"), width: 26 }, { header: t("sjColSub2"), width: 26 }, { header: t("sjColSub3"), width: 26 },
+      { header: t("sjColHours"), width: 10, format: "int" },
+    ],
+    rows: rows.map((x) => [
+      x.name, statusText(x), x.school, x.schoolType, clean(x.opsyen1) || null, clean(x.opsyen2) || null,
+      x.subjects[0]?.name, x.subjects[1]?.name, x.subjects[2]?.name, totalWaktu(x),
+    ]),
+  });
+  const loadTitle = `${t("sjLoadTitle")} · ${t("sjNormalRange")}: ${WAKTU_LOW}–${WAKTU_HIGH}`;
+
+  // Only the matching list, as currently shown (e.g. only "Tidak Sepadan").
+  const buildMatchOnly = (): Report => {
+    const statusLabel = matchFilter === "Semua" ? t("sjAll") : t(STATUS_KEY[matchFilter]);
+    return {
+      title: `${t("sjMatchCheck")} - ${statusLabel}`,
+      filters: [`${t("sjColStatus")}: ${statusLabel}`, ...(matchQuery.trim() ? [`${t("rpSearch")}: ${matchQuery.trim()}`] : []), ...describeFilters(filters, t)],
+      tables: [matchTable(tableRows, `${t("sjMatchCheck")}: ${statusLabel} (${tableRows.length.toLocaleString(locale)})`)],
+    };
+  };
+  // Only the unusual-load list, with its search and High/Low choice.
+  const buildLoadOnly = (): Report => {
+    const kindLabel = loadKind === "high" ? t("sjHigh") : loadKind === "low" ? t("sjLow") : t("sjLoadAll");
+    return {
+      title: `${t("rpShLoad")} - ${kindLabel}`,
+      filters: [`Status: ${kindLabel}`, ...(loadQuery.trim() ? [`${t("rpSearch")}: ${loadQuery.trim()}`] : []), ...describeFilters(filters, t)],
+      tables: [loadTable(loadRows, `${loadTitle} (${loadRows.length.toLocaleString(locale)})`)],
+    };
+  };
+
+  const buildReport = (): Report => {
+    const total = filtered.length;
+    const h = { count: t("rpColCount"), pct: t("rpColPct") };
+    // Every subject here (the chart shows the top 20 only).
+    const subjAll: Record<string, number> = {};
+    filtered.forEach((x) => new Set(x.subjects.map((s) => s.name)).forEach((name) => { subjAll[name] = (subjAll[name] || 0) + 1; }));
+    const matchCount = total - mismatchCount - unknownCount - counsellorCount;
+    return {
+      title: t("titleSubjek"),
+      filters: describeFilters(filters, t),
+      tables: [
+        countTable(t("sjMatchCheck"), t("sjMatchCheck"), t("sjColStatus"),
+          [[t("sjMatch"), matchCount], [t("sjMismatch"), mismatchCount], [t("sjNotTeaching"), counsellorCount], [t("sjUnknown"), unknownCount]], total, h, 28),
+        countTable(t("rpColSubject"), t("sjChartSubjects").replace(/\s*\(.*\)\s*$/, ""), t("rpColSubject"),
+          Object.entries(subjAll).sort((a, b) => b[1] - a[1]), total, h, 46),
+        loadTable(waktuAnomalies, loadTitle),
+        matchTable(filtered, t("sjMatchCheck")),
+      ],
+    };
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
         title={t("titleSubjek")}
+        report={buildReport}
         filters={filters}
-        onChange={(f) => { setFilters(f); setTablePage(1); }}
+        onChange={setFilters}
         schoolTypes={schoolTypes}
         schoolsByType={schoolsByType}
         subjects={subjects}
@@ -223,96 +297,94 @@ export default function Subjek() {
           >
             {t("sjLoadTitle")}
           </CardTitle>
-          {/* Search + High/Low toggle */}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
-            <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 360 }}>
-              <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} color="#9ca3af" />
-              <input type="text" value={loadQuery} placeholder={t("sjSearchLoad")} style={{ paddingLeft: 30 }}
-                onChange={(e) => { setLoadQuery(e.target.value); setLoadPage(1); }} />
-            </div>
-            <PillToggle<LoadKind>
-              value={loadKind}
-              onChange={(k) => { setLoadKind(k); setLoadPage(1); }}
-              options={([["all", t("sjLoadAll"), waktuAnomalies.length], ["high", t("sjHigh"), highCount], ["low", t("sjLow"), lowCount]] as [LoadKind, string, number][])
-                .map(([k, label, count]) => ({ value: k, label: `${label} (${count.toLocaleString(locale)})` }))}
-            />
-          </div>
+          <ListToolbar
+            search={{ value: loadQuery, onChange: setLoadQuery, placeholder: t("sjSearchLoad") }}
+            pager={loadPager}
+            filters={
+              <PillToggle<LoadKind>
+                value={loadKind}
+                onChange={setLoadKind}
+                options={([["all", t("sjLoadAll"), waktuAnomalies.length], ["high", t("sjHigh"), highCount], ["low", t("sjLow"), lowCount]] as [LoadKind, string, number][])
+                  .map(([k, label, count]) => ({ value: k, label: `${label} (${count.toLocaleString(locale)})` }))}
+              />
+            }
+            download={loadRows.length > 0 && <ReportButton formats={["excel", "csv"]} getReport={buildLoadOnly} title={t("rpThisList")} />}
+          />
           {loadRows.length === 0 ? (
             <div style={{ padding: "16px 0", textAlign: "center", color: "var(--soft-faint)", fontSize: 12.5 }}>{t("sjNoAnomaly")}</div>
           ) : (
-            <table className="soft-table">
-              <thead>
-                <tr>
-                  {(["sjColName", "sjColSchool", "cgTotalHours", "sjColStatus"] as DictKey[]).map((h) => (
-                    <th key={h}>{h === "sjColStatus" ? "Status" : t(h)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loadShown.map((x, i) => {
-                  const w = totalWaktu(x);
-                  const isHigh = w > WAKTU_HIGH;
-                  return (
-                    <tr key={x.id} data-i={i}>
-                      <td style={{ padding: "7px 12px", fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)" }}>{x.name}</td>
-                      <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--soft-muted)" }} title={x.school}>{shortSchoolName(x.school)}</td>
-                      <td style={{ padding: "7px 12px", fontSize: 12.5, fontWeight: 700, color: "var(--soft-text)" }}>{w} {t("sjPerWeek")}</td>
-                      <td style={{ padding: "7px 12px" }}>
-                        <span className={`tag ${isHigh ? "tag-err" : "tag-warn"}`}>
-                          {isHigh ? t("sjHigh") : t("sjLow")}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-          {loadRows.length > 8 && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-              {loadExpanded ? (
-                <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>
-                  {loadRows.length.toLocaleString(locale)} {t("sjRecords")} · {t("cgPage")} {loadPage} / {loadPages}
-                </span>
-              ) : (
-                <span style={{ fontSize: 11.5, color: "var(--soft-faint)" }}>+{(loadRows.length - 8).toLocaleString(locale)} {t("sjMoreAnomaly")}</span>
-              )}
-              <div style={{ display: "flex", gap: 6 }}>
-                {loadExpanded && loadPages > 1 && <>
-                  <PageBtn label={t("cgPrev")} onClick={() => setLoadPage((p) => Math.max(1, p - 1))} disabled={loadPage === 1} />
-                  <PageBtn label={t("cgNext")} onClick={() => setLoadPage((p) => Math.min(loadPages, p + 1))} disabled={loadPage === loadPages} />
-                </>}
-                <button type="button" className="soft-pill small" onClick={() => { setLoadExpanded(!loadExpanded); setLoadPage(1); }}>
-                  {loadExpanded ? t("sjShowLess") : t("sjShowMore")}
-                </button>
-              </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="soft-table">
+                <thead>
+                  <tr>
+                    {(["sjColName", "sjColSchool", "cgTotalHours", "sjColStatus"] as DictKey[]).map((h) => (
+                      <th key={h}>{h === "sjColStatus" ? "Status" : t(h)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadShown.map((x, i) => {
+                    const w = totalWaktu(x);
+                    const isHigh = w > WAKTU_HIGH;
+                    return (
+                      <tr key={x.id} data-i={i}>
+                        <td style={{ padding: "7px 12px", fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)" }}>{x.name}</td>
+                        <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--soft-muted)" }} title={x.school}>{shortSchoolName(x.school)}</td>
+                        <td style={{ padding: "7px 12px", fontSize: 12.5, fontWeight: 700, color: "var(--soft-text)" }}>{w} {t("sjPerWeek")}</td>
+                        <td style={{ padding: "7px 12px" }}>
+                          <span className={`tag ${isHigh ? "tag-err" : "tag-warn"}`}>
+                            {isHigh ? t("sjHigh") : t("sjLow")}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
+          <ListFooter pager={loadPager} />
         </div>
 
         {/* Matching table */}
         <div ref={matchTableRef} className="card soft-card" style={{ scrollMarginTop: 16 }}>
-          <CardTitle
-            right={
+          <CardTitle>{t("sjMatchCheck")}</CardTitle>
+          <ListToolbar
+            search={{ value: matchQuery, onChange: setMatchQuery, placeholder: t("sjSearchMatch") }}
+            pager={matchPager}
+            filters={
               <PillToggle<MatchFilter>
                 value={matchFilter}
                 onChange={handleMatchFilter}
-                options={(["Semua", "Sepadan", "Tidak Sepadan", "Tidak Dapat Ditentukan"] as MatchFilter[]).map((opt) => ({
+                options={(["Semua", "Sepadan", "Tidak Sepadan", "Tidak Mengajar", "Tidak Dapat Ditentukan"] as MatchFilter[]).map((opt) => ({
                   value: opt,
-                  title: opt === "Tidak Dapat Ditentukan" ? t("sjUnknownHelp") : undefined,
-                  label: (
-                    <>
-                      {opt === "Semua" ? t("sjAll") : t(STATUS_KEY[opt])}
-                      {opt === "Tidak Sepadan" && mismatchCount > 0 && <span className="count">{mismatchCount.toLocaleString(locale)}</span>}
-                    </>
-                  ),
+                  title: opt === "Tidak Dapat Ditentukan" ? t("sjUnknownHelp") : opt === "Tidak Mengajar" ? t("sjNotTeachingHelp") : undefined,
+                  label: opt === "Semua" ? t("sjAll") : t(STATUS_KEY[opt]),
                 }))}
               />
             }
-          >
-            {t("sjMatchCheck")}
-          </CardTitle>
+            download={tableRows.length > 0 && (
+              <ReportButton formats={["excel", "csv"]} getReport={buildMatchOnly}
+                title={`${t("rpThisList")}: ${matchFilter === "Semua" ? t("sjAll") : t(STATUS_KEY[matchFilter])} (${tableRows.length.toLocaleString(locale)})`} />
+            )}
+          />
 
+          {matchFilter === "Tidak Mengajar" && (
+            <div style={{ background: "var(--surface-2)", border: "1px solid var(--soft-line)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--soft-text-2)", marginBottom: 12 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <HeartHandshake size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>{t("sjNotTeachingHelp")}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                {(["kaunseling", "pool", "tidakAktif", "lain"] as NotTeachingReason[]).map((r) => {
+                  const n = tableRows.filter((x) => matchById.get(x.id)!.reason === r).length;
+                  return n > 0 ? (
+                    <span key={r} className="tag tag-info" style={{ fontSize: 11.5 }}>{t(`sjReason_${r}` as DictKey)}: <b>{n.toLocaleString(locale)}</b></span>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
           {matchFilter === "Tidak Dapat Ditentukan" && (
             <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "var(--surface-2)", border: "1px solid var(--soft-line)", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "var(--soft-text-2)", marginBottom: 12 }}>
               <HelpCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -324,7 +396,7 @@ export default function Subjek() {
             <table className="soft-table">
               <thead>
                 <tr>
-                  {(["sjColName", "sjColSchool", "sjColType", "sjColOp1", "sjColOp2", "sjColSub1", "sjColSub2", "sjColSub3", "sjColHours", "sjColStatus"] as DictKey[]).map((h) => (
+                  {(["sjColName", "sjColStatus", "sjColSchool", "sjColType", "sjColOp1", "sjColOp2", "sjColSub1", "sjColSub2", "sjColSub3", "sjColHours"] as DictKey[]).map((h) => (
                     <th key={h}>
                       {t(h)}
                     </th>
@@ -335,10 +407,14 @@ export default function Subjek() {
                 {paginated.map((x, i) => {
                   const m = matchById.get(x.id)!;
                   const w = totalWaktu(x);
-                  const determinable = m.status !== "Tidak Dapat Ditentukan";
+                  const determinable = m.status === "Sepadan" || m.status === "Tidak Sepadan";
                   return (
                     <tr key={x.id} data-i={i}>
                       <td style={{ padding: "8px 12px", fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)", whiteSpace: "nowrap" }}>{x.name}</td>
+                      <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                        <StatusPill status={m.status} label={t(STATUS_KEY[m.status])} />
+                        {m.reason && <div style={{ fontSize: 11, color: "var(--soft-muted)", marginTop: 3 }}>{t(`sjReason_${m.reason}` as DictKey)}</div>}
+                      </td>
                       <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--soft-muted)", maxWidth: 160 }} title={x.school}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortSchoolName(x.school)}</div>
                       </td>
@@ -352,9 +428,6 @@ export default function Subjek() {
                       ))}
                       <td style={{ padding: "8px 12px", fontSize: 12, fontWeight: 600, color: x.subjects.length && (w < WAKTU_LOW || w > WAKTU_HIGH) ? ORANGE : "var(--soft-text-2)" }}>
                         {w}
-                      </td>
-                      <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                        <StatusPill status={m.status} label={t(STATUS_KEY[m.status])} />
                       </td>
                     </tr>
                   );
@@ -370,17 +443,7 @@ export default function Subjek() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--soft-line)" }}>
-              <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>
-                {tableRows.length.toLocaleString(locale)} {t("sjRecords")} · {t("cgPage")} {tablePage} / {totalPages}
-              </span>
-              <div style={{ display: "flex", gap: 6 }}>
-                <PageBtn label={t("cgPrev")} onClick={() => setTablePage((p) => Math.max(1, p - 1))} disabled={tablePage === 1} />
-                <PageBtn label={t("cgNext")} onClick={() => setTablePage((p) => Math.min(totalPages, p + 1))} disabled={tablePage === totalPages} />
-              </div>
-            </div>
-          )}
+          <ListFooter pager={matchPager} />
         </div>
       </main>
     </div>
@@ -398,6 +461,7 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
 function StatusPill({ status, label }: { status: MatchStatus; label: string }) {
   if (status === "Sepadan") return <Tag kind="ok" icon={<CheckCircle2 size={12} />}>{label}</Tag>;
   if (status === "Tidak Sepadan") return <Tag kind="warn" icon={<AlertTriangle size={12} />}>{label}</Tag>;
+  if (status === "Tidak Mengajar") return <Tag kind="info" icon={<HeartHandshake size={12} />}>{label}</Tag>;
   return <Tag kind="muted" icon={<HelpCircle size={12} />}>{label}</Tag>;
 }
 
@@ -435,8 +499,4 @@ function SubCell({ value, matched, neutral }: { value?: string; matched: boolean
       </span>
     </td>
   );
-}
-
-function PageBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
-  return <PagerButton label={label} onClick={onClick} disabled={disabled} />;
 }

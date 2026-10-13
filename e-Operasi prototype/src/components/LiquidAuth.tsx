@@ -171,6 +171,10 @@ export default function LiquidAuth({
         {stage === "idle" && (
           <div
             onClick={openStage}
+            role="button"
+            tabIndex={0}
+            aria-label={typeof idleLabel === "string" ? idleLabel : undefined}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openStage(); } }}
             style={{ position: "absolute", inset: 0, cursor: "pointer", zIndex: 4 }}
           />
         )}
@@ -229,6 +233,8 @@ export default function LiquidAuth({
                     type={f.type === "password" && visibleFields[f.id] ? "text" : f.type ?? "text"}
                     value={f.value}
                     onChange={(e) => f.onChange(e.target.value)}
+                    // Enter = submit (same as clicking the button).
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
                     placeholder={f.placeholder}
                     style={{
                       width: "100%", border: "none", outline: "none", fontSize: 13.5, color: "#fff",

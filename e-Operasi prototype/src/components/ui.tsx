@@ -1,17 +1,24 @@
+import "./ListModal.css";
 // Small building blocks shared by every page, so they all look like the Overview page.
 
 export type Tone = "blue" | "teal" | "amber" | "violet" | "rose" | "gray";
 
-/** KPI card: tinted icon tile + label + big number + optional coloured note. */
-export function StatTile({ icon, label, value, note, tone = "blue" }: {
+/** KPI card: tinted icon tile + label + big number + optional coloured note.
+ *  With onClick the whole card is a button that opens the list behind it. */
+export function StatTile({ icon, label, value, note, tone = "blue", onClick, actionLabel }: {
   icon: React.ReactNode;
   label: string;
   value: React.ReactNode;
   note?: React.ReactNode;
   tone?: Tone;
+  onClick?: () => void;
+  /** e.g. "Lihat senarai" — shown at the bottom-right of a clickable card. */
+  actionLabel?: string;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="card" style={{ padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start", minWidth: 0 }}>
+    <Tag type={onClick ? "button" : undefined} onClick={onClick} className={`card${onClick ? " stat-click" : ""}`}
+      style={{ padding: "18px 20px", display: "flex", gap: 14, alignItems: "flex-start", minWidth: 0, position: "relative", textAlign: "left", font: "inherit", color: "inherit", width: "100%" }}>
       <div style={{
         width: 42, height: 42, borderRadius: 12, flexShrink: 0,
         background: `var(--tint-${tone})`, color: `var(--ink-${tone})`,
@@ -24,7 +31,8 @@ export function StatTile({ icon, label, value, note, tone = "blue" }: {
         <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{value}</span>
         {note != null && <span style={{ fontSize: 12, fontWeight: 600, color: `var(--ink-${tone})` }}>{note}</span>}
       </div>
-    </div>
+      {onClick && actionLabel && <span className="stat-action">{actionLabel} →</span>}
+    </Tag>
   );
 }
 
@@ -75,9 +83,9 @@ export function Tag({ kind, children, icon }: { kind: "ok" | "warn" | "err" | "i
 }
 
 /** Previous / next buttons. */
-export function PagerButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
+export function PagerButton({ label, onClick, disabled, title }: { label: string; onClick: () => void; disabled: boolean; title?: string }) {
   return (
-    <button type="button" className="soft-pill small" onClick={onClick} disabled={disabled}>
+    <button type="button" className="soft-pill small" onClick={onClick} disabled={disabled} title={title}>
       {label}
     </button>
   );

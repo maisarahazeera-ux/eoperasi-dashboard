@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
     public DbSet<DataImport> DataImports => Set<DataImport>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -21,5 +22,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Teacher>()
             .HasIndex(t => t.IcNumber)
             .IsUnique();
+
+        // Log Aktiviti is always read newest-first.
+        modelBuilder.Entity<ActivityLog>()
+            .HasIndex(a => a.At);
     }
 }

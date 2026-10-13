@@ -5,6 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { Clock, CheckCircle2 } from "lucide-react";
 import LiquidAuth from "../components/LiquidAuth";
 import AuthLayout, { AuthHeading, AuthSwitch } from "../components/AuthLayout";
+import ResendVerification from "../components/ResendVerification";
 
 
 interface LoginProps {
@@ -18,6 +19,8 @@ export default function Login({ onSwitchToRegister, onForgotPassword }: LoginPro
   const [username, setUsername] = useState(() => localStorage.getItem("rememberedUsername") || "");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
+  // Set when the password is right but the account can't log in yet (shows "resend email").
+  const [unverifiedLogin, setUnverifiedLogin] = useState<string | null>(null);
   // Why the user landed here (set by AuthContext on logout); shown once.
   const [logoutReason] = useState<string | null>(() => {
     try {
@@ -29,12 +32,19 @@ export default function Login({ onSwitchToRegister, onForgotPassword }: LoginPro
 
   async function handleSubmit(): Promise<string | null> {
     if (!username || !password) return t("errFillLogin");
+    setUnverifiedLogin(null);
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
+      if (res.status === 403) {
+        const body = await res.json().catch(() => null);
+        if (body?.code === "unverified") { setUnverifiedLogin(username); return t("loginBlockedUnverified"); }
+        if (body?.code === "pending") return t("loginBlockedPending");
+        return t("loginBlockedDeactivated");
+      }
       if (!res.ok) return t("errBadLogin");
       const data = await res.json();
       localStorage.setItem("rememberedUsername", username);
@@ -70,6 +80,8 @@ export default function Login({ onSwitchToRegister, onForgotPassword }: LoginPro
           },
         ]}
       />
+
+      {unverifiedLogin && <ResendVerification login={unverifiedLogin} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, gap: 12, flexWrap: "wrap" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--soft-text-2)", cursor: "pointer" }}>

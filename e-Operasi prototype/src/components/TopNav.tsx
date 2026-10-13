@@ -1,8 +1,8 @@
-import { LayoutGrid, Search, Users, Award, BookOpen, UserMinus, LogOut, Building2, Moon, Sun, DatabaseZap } from "lucide-react";
+import { LayoutGrid, Search, Users, Award, BookOpen, UserMinus, LogOut, Building2, Moon, Sun, DatabaseZap, UserCog, ScrollText } from "lucide-react";
 import { useTheme } from "../lib/theme";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
 
-export type Page = "overview" | "carian-guru" | "demografi" | "gred" | "subjek" | "persaraan" | "profile" | "kemaskini-data";
+export type Page = "overview" | "carian-guru" | "demografi" | "gred" | "subjek" | "persaraan" | "profile" | "kemaskini-data" | "pengguna" | "log-aktiviti";
 
 const TABS: { id: Page; labelKey: DictKey; Icon: React.ElementType }[] = [
   { id: "overview",    labelKey: "navOverview",   Icon: LayoutGrid },
@@ -15,7 +15,9 @@ const TABS: { id: Page; labelKey: DictKey; Icon: React.ElementType }[] = [
 
 // Shown only to admins (the API also refuses non-admins).
 const ADMIN_TABS: typeof TABS = [
+  { id: "pengguna",       labelKey: "navPengguna",      Icon: UserCog },
   { id: "kemaskini-data", labelKey: "navKemaskiniData", Icon: DatabaseZap },
+  { id: "log-aktiviti",   labelKey: "navLogAktiviti",   Icon: ScrollText },
 ];
 
 interface Props {
@@ -24,16 +26,18 @@ interface Props {
   onLogout: () => void;
   displayName: string;
   isAdmin?: boolean;
+  /** Small red number on a tab, e.g. accounts waiting for approval. */
+  badges?: Partial<Record<Page, number>>;
 }
 
 /** White top bar: logo on the left, pill tabs in the middle, language + profile on the right. */
-export default function TopNav({ active, onNavigate, onLogout, displayName, isAdmin = false }: Props) {
+export default function TopNav({ active, onNavigate, onLogout, displayName, isAdmin = false, badges = {} }: Props) {
   const { t, lang, setLang } = useLanguage();
   const { theme, toggle } = useTheme();
   const initial = (displayName.trim()[0] || "?").toUpperCase();
 
   return (
-    <header className="soft-topnav">
+    <header className={`soft-topnav${isAdmin ? " admin" : ""}`}>
       <div className="soft-brand">
         <div className="soft-brand-icon"><Building2 size={20} /></div>
         <div className="soft-brand-text">
@@ -54,6 +58,12 @@ export default function TopNav({ active, onNavigate, onLogout, displayName, isAd
           >
             <Icon size={14} className="soft-tab-icon" />
             <span className="soft-tab-label">{t(labelKey)}</span>
+            {!!badges[id] && (
+              <span aria-label={`(${badges[id]})`} style={{
+                minWidth: 17, height: 17, padding: "0 5px", borderRadius: 999, background: "#D93636", color: "#fff",
+                fontSize: 10.5, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", marginLeft: 2,
+              }}>{badges[id]}</span>
+            )}
           </button>
         ))}
       </nav>
