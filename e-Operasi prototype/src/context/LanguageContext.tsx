@@ -445,6 +445,7 @@ const dict = {
   cgAllSchools: { ms: "Semua Sekolah", en: "All Schools" },
   cgAllSubjects: { ms: "Semua Subjek", en: "All Subjects" },
   cgAllStatus: { ms: "Semua Status", en: "All Status" },
+  cgAllPositions: { ms: "Semua Jawatan", en: "All Positions" },
   cgClear: { ms: "Padam", en: "Clear" },
   cgRecordsFound: { ms: "rekod dijumpai", en: "records found" },
   cgNoRecords: { ms: "Tiada rekod dijumpai.", en: "No records found." },

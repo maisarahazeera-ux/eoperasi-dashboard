@@ -13,12 +13,14 @@ interface Props {
   allLabel: string;              // text shown when nothing is selected, e.g. "Semua"
   searchPlaceholder: string;     // e.g. "Taip untuk cari..."
   noMatchLabel: string;          // e.g. "Tiada padanan"
+  pill?: boolean;                // show as a rounded pill button (like the filter pills)
+  icon?: React.ReactNode;        // icon shown inside the pill
 }
 
 // A dropdown you can type into to filter a long list (schools, subjects).
 // Keyboard: ↑/↓ to move, Enter to pick, Esc to close.
 export default function SearchableSelect({
-  value, options, onChange, allLabel, searchPlaceholder, noMatchLabel,
+  value, options, onChange, allLabel, searchPlaceholder, noMatchLabel, pill = false, icon,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -87,18 +89,88 @@ export default function SearchableSelect({
     }
   }
 
+  const list = (
+    <div
+      ref={listRef}
+      style={pill ? { maxHeight: 280, overflowY: "auto" } : {
+        position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
+        maxHeight: 240, overflowY: "auto", background: "var(--surface)",
+        border: "1px solid var(--border)", borderRadius: 7,
+        boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+      }}
+    >
+      {matches.length === 0 ? (
+        <div style={{ padding: "8px 10px", fontSize: 12.5, color: "var(--soft-faint)" }}>{noMatchLabel}</div>
+      ) : (
+        matches.map((o, i) => (
+          <div
+            key={o.value}
+            title={o.value}
+            onMouseDown={(e) => { e.preventDefault(); pick(o.value); }}
+            onMouseEnter={() => setHighlight(i)}
+            style={{
+              padding: "7px 10px", fontSize: 12.5, cursor: "pointer",
+              background: i === highlight ? "var(--hover)" : o.value === value ? "var(--surface-2)" : "var(--surface)",
+              color: o.value === value ? "#0D9488" : "var(--text-primary)",
+              fontWeight: o.value === value ? 600 : 400,
+            }}
+          >
+            {o.label}
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  const searchInput = (
+    <input
+      ref={inputRef}
+      type="text"
+      value={query}
+      placeholder={searchPlaceholder}
+      onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
+      onKeyDown={onKeyDown}
+    />
+  );
+
+  // Pill: the button stays put and the search box opens inside the drop-down panel.
+  if (pill) {
+    return (
+      <div ref={wrapRef} style={{ position: "relative" }}>
+        <button
+          type="button"
+          className={`soft-pill${selected ? " set" : ""}`}
+          aria-pressed={!!selected}
+          onClick={() => (open ? close() : openList())}
+          title={selected?.value}
+          style={{ maxWidth: 300 }}
+        >
+          {icon}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{selected ? selected.label : allLabel}</span>
+          {selected ? (
+            <X size={13} style={{ flexShrink: 0 }} aria-label="×"
+              onClick={(e) => { e.stopPropagation(); onChange(""); close(); }} />
+          ) : (
+            <ChevronDown size={13} style={{ flexShrink: 0 }} />
+          )}
+        </button>
+        {open && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20, width: 320, maxWidth: "calc(100vw - 32px)",
+            background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12,
+            boxShadow: "0 8px 20px rgba(0,0,0,0.12)", padding: 6,
+          }}>
+            <div style={{ marginBottom: 4 }}>{searchInput}</div>
+            {list}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      {open ? (
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          placeholder={searchPlaceholder}
-          onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
-          onKeyDown={onKeyDown}
-        />
-      ) : (
+      {open ? searchInput : (
         <button
           type="button"
           onClick={openList}
@@ -125,39 +197,7 @@ export default function SearchableSelect({
           )}
         </button>
       )}
-
-      {open && (
-        <div
-          ref={listRef}
-          style={{
-            position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20,
-            maxHeight: 240, overflowY: "auto", background: "var(--surface)",
-            border: "1px solid var(--border)", borderRadius: 7,
-            boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-          }}
-        >
-          {matches.length === 0 ? (
-            <div style={{ padding: "8px 10px", fontSize: 12.5, color: "var(--soft-faint)" }}>{noMatchLabel}</div>
-          ) : (
-            matches.map((o, i) => (
-              <div
-                key={o.value}
-                title={o.value}
-                onMouseDown={(e) => { e.preventDefault(); pick(o.value); }}
-                onMouseEnter={() => setHighlight(i)}
-                style={{
-                  padding: "7px 10px", fontSize: 12.5, cursor: "pointer",
-                  background: i === highlight ? "var(--hover)" : o.value === value ? "var(--surface-2)" : "var(--surface)",
-                  color: o.value === value ? "#0D9488" : "var(--text-primary)",
-                  fontWeight: o.value === value ? 600 : 400,
-                }}
-              >
-                {o.label}
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {open && list}
     </div>
   );
 }

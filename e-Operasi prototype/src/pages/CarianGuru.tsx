@@ -18,10 +18,14 @@ import { useAuth } from "../context/AuthContext";
 import { pgbRole, isPgb, jawatanLabel, tempohKhidmatSekolah, tempohLantikanJawatan, bakiPerkhidmatan, type DurationWords } from "../lib/pgb";
 import { downloadTeacherListExcel } from "../lib/teacherListExcel";
 import { useDataDate } from "../lib/dataInfo";
-import { Crown, Info } from "lucide-react";
+import { Crown, Info, Briefcase } from "lucide-react";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
 import { fixMonth } from "../lib/dates";
 
+
+/** Position filter value meaning "every Pengetua & Guru Besar". */
+const PGB_ALL = "__PGB__";
+const PGB_ROLES: string[] = ["Guru Besar", "Guru Besar Cemerlang / Kanan", "Pengetua", "Pengetua Cemerlang / Kanan"];
 
 function totalWaktu(x: Teacher) {
   return x.subjects.reduce((sum, s) => sum + s.hours, 0);
@@ -67,8 +71,10 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
   const [filterSchool, setFilterSchool] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  // Pengetua & Guru Besar only (like PPD's "Senarai PGB").
-  const [filterPgb, setFilterPgb] = useState(false);
+  // One position filter: PGB_ALL (every Pengetua & Guru Besar, like PPD's "Senarai PGB")
+  // or one position, matched on the label shown in the Jawatan column.
+  const [filterPosition, setFilterPosition] = useState("");
+  const filterPgb = filterPosition === PGB_ALL || PGB_ROLES.includes(filterPosition);
   const dataDate = useDataDate();
   const words: DurationWords = { year: t("cgDurYear"), month: t("cgDurMonth"), day: t("cgDurDay"), retired: t("cgRetired"), yearOne: t("cgDurYear1"), monthOne: t("cgDurMonth1"), dayOne: t("cgDurDay1") };
   const [selected, setSelected] = useState<Teacher | null>(null);
@@ -82,6 +88,24 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
   }, [filterSchoolType, schoolsByType]);
 
   const subjectOptions = useMemo(() => subjects.map((s) => ({ value: s, label: s })), [subjects]);
+
+  // Positions in the data, with the number of teachers in each, e.g. "Guru Pemulihan (42)".
+  const positionOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const x of teachers ?? []) {
+      const p = jawatanLabel(x).trim();
+      if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+    }
+    const pgbTotal = (teachers ?? []).filter(isPgb).length;
+    const fmt = (n: number) => n.toLocaleString(locale);
+    // PGB first (all, then each role), then every other position A-Z.
+    const pgb = PGB_ROLES.filter((r) => counts.has(r));
+    const rest = Array.from(counts.keys()).filter((p) => !PGB_ROLES.includes(p)).sort((a, b) => a.localeCompare(b));
+    return [
+      ...(pgbTotal ? [{ value: PGB_ALL, label: `${t("cgPgbFilter")} (${fmt(pgbTotal)})` }] : []),
+      ...[...pgb, ...rest].map((p) => ({ value: p, label: `${p} (${fmt(counts.get(p)!)})` })),
+    ];
+  }, [teachers, locale, t]);
 
   const filtered = useMemo(() => {
     if (!teachers) return [];
@@ -97,13 +121,14 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
       if (filterSchool && x.school !== filterSchool) return false;
       if (filterSubject && !x.subjects.some((s) => s.name === filterSubject)) return false;
       if (filterStatus && x.employmentStatus !== filterStatus) return false;
-      if (filterPgb && !isPgb(x)) return false;
+      if (filterPosition === PGB_ALL) { if (!isPgb(x)) return false; }
+      else if (filterPosition && jawatanLabel(x).trim() !== filterPosition) return false;
       return true;
     }).sort((a, b) =>
       // By school code (like the PPD list), the school head first, then by name.
       (a.schoolCode || "~").localeCompare(b.schoolCode || "~") || a.school.localeCompare(b.school) ||
       Number(isPgb(b)) - Number(isPgb(a)) || a.name.localeCompare(b.name));
-  }, [teachers, query, filterSchoolType, filterSchool, filterSubject, filterStatus, filterPgb]);
+  }, [teachers, query, filterSchoolType, filterSchool, filterSubject, filterStatus, filterPosition]);
 
   const pgbCounts = useMemo(() => {
     const c = { total: 0, gb: 0, pengetua: 0, cemerlang: 0 };
@@ -125,11 +150,11 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
   // Every filter change goes back to page 1.
   const withReset = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1); };
 
-  const isDirty = query || filterSchoolType || filterSchool || filterSubject || filterStatus || filterPgb;
+  const isDirty = query || filterSchoolType || filterSchool || filterSubject || filterStatus || filterPosition;
 
   function clearAll() {
     setQuery(""); setFilterSchoolType(""); setFilterSchool("");
-    setFilterSubject(""); setFilterStatus(""); setFilterPgb(false); setPage(1);
+    setFilterSubject(""); setFilterStatus(""); setFilterPosition(""); setPage(1);
   }
 
   if (error) {
@@ -167,7 +192,7 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
   const buildReport = (): Report => {
     const filtersText = [
       query && `${t("rpSearch")}: ${query}`,
-      filterPgb && t("cgPgbFilter"),
+      filterPosition && `${t("cgJawatan")}: ${filterPosition === PGB_ALL ? t("cgPgbFilter") : filterPosition}`,
       filterSchoolType && `${t("filterSchoolType")}: ${filterSchoolType}`,
       filterSchool && `${t("filterSchoolName")}: ${filterSchool}`,
       filterSubject && `${t("filterSubject")}: ${filterSubject}`,
@@ -260,10 +285,9 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
             {employmentStatuses.map((s) => <option key={s} value={s}>{valueLabel(s, lang)}</option>)}
           </select>
         </div>
-        <button type="button" className={`soft-pill${filterPgb ? " set" : ""}`} aria-pressed={filterPgb}
-          onClick={() => { setFilterPgb(!filterPgb); setPage(1); }}>
-          <Crown size={13} /> {t("cgPgbFilter")}
-        </button>
+        <SearchableSelect pill value={filterPosition} options={positionOptions}
+          onChange={withReset(setFilterPosition)} allLabel={t("cgAllPositions")} {...searchLabels}
+          icon={filterPgb ? <Crown size={13} /> : <Briefcase size={13} />} />
         {isDirty && (
           <button onClick={clearAll}
             className="soft-pill small ghost">
@@ -298,7 +322,7 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <div style={{ flex: 1, overflowY: "auto", background: "var(--mac-bg)", padding: "8px 32px 28px" }}>
           <div className="card" style={{ overflowX: "auto" }}>
-            <table className="soft-table" style={{ minWidth: 1180 }}>
+            <table className="soft-table" style={{ minWidth: 1280 }}>
               <thead>
                 <tr>
                   {(["cgKodSek", "cgNamaSek", "cgNama", "cgNoKp", "cgJawatan", "cgGred", "cgLantikanJawatan", "cgKhidmatSekolah", "cgTarikhBersara", "cgBaki"] as DictKey[]).map((h) => (
@@ -333,8 +357,8 @@ export default function CarianGuru({ initialQuery = "" }: { initialQuery?: strin
                     <td style={{ padding: "9px 12px" }}>
                       <span className="tag tag-info">{x.gredPenyandang || "-"}</span>
                     </td>
-                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{formatDate(x.tarikhLantikanJawatanSemasa, locale) || "-"}</td>
-                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{formatDate(x.tarikhKhidmatSekolahSemasa, locale) || "-"}</td>
+                    <DateWithDuration date={formatDate(x.tarikhLantikanJawatanSemasa, locale)} duration={tempohLantikanJawatan(x, words)} />
+                    <DateWithDuration date={formatDate(x.tarikhKhidmatSekolahSemasa, locale)} duration={tempohKhidmatSekolah(x, words)} />
                     <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{formatDate(x.retirementDate, locale) || "-"}</td>
                     <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{bakiPerkhidmatan(x, words) || "-"}</td>
                   </tr>
@@ -364,6 +388,18 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 10, color }}>
       {children}
     </div>
+  );
+}
+
+/** Date on top, time since then ("x tahun y bulan z hari") underneath in small grey text. */
+function DateWithDuration({ date, duration }: { date: string; duration: string }) {
+  return (
+    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>
+      <div>{date || "-"}</div>
+      {date && duration && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-teal)", marginTop: 2 }}>{duration}</div>
+      )}
+    </td>
   );
 }
 
