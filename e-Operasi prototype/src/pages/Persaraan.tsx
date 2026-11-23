@@ -1,11 +1,16 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { UserMinus, Loader2, AlertTriangle } from "lucide-react";
-import FilterSidebar, { DEFAULT_FILTERS, type Filters } from "../lib/FilterSidebar";
+import { UserMinus, Loader2, AlertTriangle, CalendarClock, CalendarRange } from "lucide-react";
+import { StatTile, StatRow, CardTitle } from "../components/ui";
+import FilterSidebar, { DEFAULT_FILTERS, describeFilters, type Filters } from "../lib/FilterSidebar";
+import { countTable, type Report, type ReportTable } from "../lib/report";
+import ReportButton from "../components/ReportButton";
+import { ListToolbar, ListFooter, usePager } from "../components/ListControls";
 import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { NAVY, TEAL, ORANGE, CHART_COLORS, SCHOOL_TYPE_CHART_COLORS, CHART, schoolTypeChip } from "../lib/colors";
 import { shortSchoolName } from "../lib/schoolName";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
+import { fixMonth } from "../lib/dates";
 
 const YEAR_MS = 365.25 * 864e5;
 
@@ -20,6 +25,7 @@ export default function Persaraan() {
   const { teachers, error } = useTeachers();
   const { schoolTypes, schoolsByType, subjects, employmentStatuses } = useTeacherLookups(teachers);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [query, setQuery] = useState("");
 
   // Real "today", recalculated each time the page is opened.
   const now = useMemo(() => Date.now(), []);
@@ -78,9 +84,14 @@ export default function Persaraan() {
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0])).map(([name, count]) => ({ name, count }));
   }, [withYears]);
 
-  const tableRows = useMemo(
-    () => [...pastDate, ...within3].sort((a, b) => a.y - b.y),
-    [pastDate, within3]);
+  // Teachers retiring within 3 years (plus any already past their date), with the search applied.
+  const tableRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return [...pastDate, ...within3]
+      .filter(({ x }) => !q || [x.name, x.school, shortSchoolName(x.school), x.position, x.gredPenyandang].some((v) => v?.toLowerCase().includes(q)))
+      .sort((a, b) => a.y - b.y);
+  }, [pastDate, within3, query]);
+  const pager = usePager(tableRows.length, tableRows);
 
   if (error) {
     return (
@@ -102,19 +113,62 @@ export default function Persaraan() {
   }
 
   const fmtDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }) : "-";
+    d ? fixMonth(new Date(d).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" })) : "-";
 
   const remaining = (y: number) => {
     if (y < 0) return t("psPastDate");
-    if (y < 1) return `${Math.max(1, Math.round(y * 12))} ${t("psMonths")}`;
+    if (y < 1) { const n = Math.max(1, Math.round(y * 12)); return `${n} ${n === 1 ? t("psMonth1") : t("psMonths")}`; }
     return `${y.toFixed(1)} ${t("psYears")}`;
   };
 
   const tip = (v: unknown) => [Number(v).toLocaleString(locale), t("ovTeachersUnit")];
 
+  const retireTable = (): ReportTable => ({
+    name: t("rpShRetireList"), title: `${t("psList")} (${tableRows.length})`,
+    columns: [
+      { header: t("psColName"), width: 36 }, { header: t("psColSchool"), width: 40 }, { header: t("psColType"), width: 9 },
+      { header: t("psColGrade"), width: 9 }, { header: t("psColPosition"), width: 34 }, { header: t("psColDate"), width: 13, format: "date" },
+      { header: t("psColRemaining"), width: 22 },
+    ],
+    rows: tableRows.map(({ x, y }) => [x.name, x.school, x.schoolType, x.gredPenyandang, x.position, x.retirementDate, remaining(y)]),
+  });
+  // Only the retirement list (the per-table download button).
+  const buildListOnly = (): Report => ({
+    title: t("psList"),
+    filters: [...(query.trim() ? [`${t("rpSearch")}: ${query.trim()}`] : []), ...describeFilters(filters, t)],
+    tables: [retireTable()],
+  });
+
+  const buildReport = (): Report => {
+    const h = { count: t("rpColCount"), pct: t("rpColPct") };
+    return {
+      title: t("titlePersaraan"),
+      filters: describeFilters(filters, t),
+      tables: [
+        {
+          name: t("rpSummary"), title: t("rpSummary"),
+          columns: [{ header: t("rpColItem"), width: 44 }, { header: h.count, width: 15, format: "int" }],
+          rows: [
+            [t("ovTotalTeachers"), filtered.length],
+            [t("psWithin1"), within1.length],
+            [t("psWithin3"), within3.length],
+            [t("psWithin5"), within5.length],
+            [t("rpPastDateCount"), pastDate.length],
+          ],
+        },
+        countTable(t("rpColYear"), t("psByYear"), t("rpColYear"), byYear.map((d) => [d.name, d.count]), filtered.length, h, 12),
+        countTable(t("grColGrade"), t("psByGrade"), t("grColGrade"), byGred.map((d) => [d.name, d.count]), within5.length, h, 12),
+        countTable(t("filterSchoolType"), t("psByType"), t("filterSchoolType"), byType.map((d) => [d.name, d.count]), within5.length, h, 16),
+        retireTable(),
+      ],
+    };
+  };
+
   return (
-    <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       <FilterSidebar
+        title={t("titlePersaraan")}
+        report={buildReport}
         filters={filters}
         onChange={setFilters}
         schoolTypes={schoolTypes}
@@ -123,33 +177,31 @@ export default function Persaraan() {
         employmentStatuses={employmentStatuses}
       />
 
-      <main style={{ flex: 1, overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 800, color: NAVY, margin: 0 }}>{t("psTitle")}</h1>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: "4px 0 0" }}>
-            {t("psBasedOn")} · {filtered.length.toLocaleString(locale)} {t("dmInView")}
-          </p>
-        </div>
+      <main className="mac-main">
+        <p style={{ fontSize: 13, color: "var(--soft-muted)", margin: "0 0 14px" }}>
+          {t("psBasedOn")} · {filtered.length.toLocaleString(locale)} {t("dmInView")}
+        </p>
 
         {/* Stat strip */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: pastDate.length ? 12 : 24 }}>
-          <StatCard icon={<UserMinus size={18} />} label={t("psWithin1")} value={within1.length} accent={ORANGE} locale={locale} />
-          <StatCard icon={<UserMinus size={18} />} label={t("psWithin3")} value={within3.length} accent={TEAL} locale={locale} />
-          <StatCard icon={<UserMinus size={18} />} label={t("psWithin5")} value={within5.length} accent={NAVY} locale={locale} />
-        </div>
+        <StatRow>
+          <StatTile icon={<CalendarClock size={20} />} tone="amber" label={t("psWithin1")} value={within1.length.toLocaleString(locale)} note={t("ovTeachersWord")} />
+          <StatTile icon={<CalendarRange size={20} />} tone="teal" label={t("psWithin3")} value={within3.length.toLocaleString(locale)} note={t("ovTeachersWord")} />
+          <StatTile icon={<UserMinus size={20} />} tone="blue" label={t("psWithin5")} value={within5.length.toLocaleString(locale)} note={t("ovTeachersWord")} />
+        </StatRow>
+
 
         {pastDate.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", borderRadius: 8, padding: "8px 12px", fontSize: 12.5, marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--err-bg)", border: "1px solid var(--err-line)", color: "var(--err-ink)", borderRadius: 12, padding: "10px 14px", fontSize: 12.5, marginBottom: 16 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0 }} />
             <span><b>{pastDate.length}</b> {t("psPastNote")}</span>
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="soft-grid">
           {/* Timeline by year */}
-          <div className="card" style={{ padding: "16px 18px", gridColumn: "1 / -1" }}>
+          <div className="card soft-card wide">
             <ChartTitle>{t("psByYear")}</ChartTitle>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={210}>
               <BarChart data={byYear} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} />
@@ -163,7 +215,7 @@ export default function Persaraan() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 14, fontSize: 11, color: "#6b7280", marginTop: 6 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 14, fontSize: 11, color: "var(--soft-muted)", marginTop: 6 }}>
               <Swatch color={ORANGE} label={t("psLegend1")} />
               <Swatch color={TEAL} label={t("psLegend3")} />
               <Swatch color={NAVY} label={t("psLegendLater")} />
@@ -171,9 +223,9 @@ export default function Persaraan() {
           </div>
 
           {/* By grade */}
-          <div className="card" style={{ padding: "16px 18px" }}>
+          <div className="card soft-card">
             <ChartTitle>{t("psByGrade")}</ChartTitle>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={210}>
               <BarChart data={byGred} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
@@ -187,9 +239,9 @@ export default function Persaraan() {
           </div>
 
           {/* By school type */}
-          <div className="card" style={{ padding: "16px 18px" }}>
+          <div className="card soft-card">
             <ChartTitle>{t("psByType")}</ChartTitle>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={210}>
               <BarChart data={byType} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} />
@@ -203,45 +255,47 @@ export default function Persaraan() {
           </div>
 
           {/* Table — teachers retiring within 3 years (plus any already past their date) */}
-          <div className="card" style={{ padding: "16px 18px", gridColumn: "1 / -1" }}>
-            <ChartTitle>{t("psList")} ({within3.length.toLocaleString(locale)})</ChartTitle>
-            <div style={{ maxHeight: 360, overflowY: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="card soft-card wide">
+            <CardTitle>{t("psList")} ({within3.length.toLocaleString(locale)})</CardTitle>
+            <ListToolbar
+              search={{ value: query, onChange: setQuery, placeholder: t("psSearch") }}
+              pager={pager}
+              download={tableRows.length > 0 && <ReportButton formats={["excel", "csv"]} getReport={buildListOnly} title={t("rpThisList")} />}
+            />
+            <div style={{ overflowX: "auto" }}>
+              <table className="soft-table">
                 <thead>
-                  <tr style={{ background: "#f9fafb", position: "sticky", top: 0 }}>
+                  <tr>
                     {(["psColName", "psColSchool", "psColType", "psColGrade", "psColPosition", "psColDate", "psColRemaining"] as DictKey[]).map((h) => (
-                      <th key={h} style={{ padding: "8px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap", background: "#f9fafb" }}>{t(h)}</th>
+                      <th key={h}>{t(h)}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {tableRows.map(({ x, y }, i) => (
-                    <tr key={x.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
-                      <td style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 500, color: "#111827" }}>{x.name}</td>
-                      <td style={{ padding: "7px 14px", fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }} title={x.school}>{shortSchoolName(x.school)}</td>
+                  {pager.slice(tableRows).map(({ x, y }, i) => (
+                    <tr key={x.id} data-i={i}>
+                      <td style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)" }}>{x.name}</td>
+                      <td style={{ padding: "7px 14px", fontSize: 12, color: "var(--soft-muted)", whiteSpace: "nowrap" }} title={x.school}>{shortSchoolName(x.school)}</td>
                       <td style={{ padding: "7px 14px" }}><span style={schoolTypeChip(x.schoolType)}>{x.schoolType}</span></td>
                       <td style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, color: NAVY }}>{x.gredPenyandang || "-"}</td>
-                      <td style={{ padding: "7px 14px", fontSize: 12, color: "#374151", maxWidth: 240 }} title={x.position ?? ""}>
+                      <td style={{ padding: "7px 14px", fontSize: 12, color: "var(--soft-text-2)", maxWidth: 240 }} title={x.position ?? ""}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.position || "-"}</div>
                       </td>
-                      <td style={{ padding: "7px 14px", fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>{fmtDate(x.retirementDate)}</td>
+                      <td style={{ padding: "7px 14px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{fmtDate(x.retirementDate)}</td>
                       <td style={{ padding: "7px 14px", whiteSpace: "nowrap" }}>
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
-                          background: y < 0 ? "#fee2e2" : y <= 1 ? "#ffedd5" : "#f0fdfa",
-                          color: y < 0 ? "#991b1b" : y <= 1 ? "#c2410c" : "#0f766e",
-                        }}>
+                        <span className={`tag ${y < 0 ? "tag-err" : y <= 1 ? "tag-warn" : "tag-info"}`}>
                           {remaining(y)}
                         </span>
                       </td>
                     </tr>
                   ))}
                   {tableRows.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 32, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>{t("psNone")}</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 32, textAlign: "center", color: "var(--soft-faint)", fontSize: 13 }}>{query.trim() ? t("cgNoRecords") : t("psNone")}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
+            <ListFooter pager={pager} />
           </div>
         </div>
       </main>
@@ -266,22 +320,6 @@ function Swatch({ color, label }: { color: string; label: string }) {
   );
 }
 
-function StatCard({ icon, label, value, accent, locale }: { icon: React.ReactNode; label: string; value: number; accent: string; locale: string }) {
-  return (
-    <div className="card" style={{ padding: "16px 20px", borderLeft: `4px solid ${accent}`, display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ background: accent + "18", borderRadius: 8, padding: 9, color: accent, display: "flex" }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 24, fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>{value.toLocaleString(locale)}</div>
-        <div style={{ fontSize: 11.5, color: "#6b7280", marginTop: 2 }}>{label}</div>
-      </div>
-    </div>
-  );
-}
-
 function ChartTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 12.5, fontWeight: 700, color: NAVY, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #f3f4f6" }}>
-      {children}
-    </div>
-  );
+  return <CardTitle>{children}</CardTitle>;
 }

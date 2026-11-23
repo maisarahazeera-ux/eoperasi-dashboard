@@ -8,6 +8,8 @@ import {
   TEXT_SIZE_MIN, TEXT_SIZE_MAX, TEXT_SIZE_DEFAULT,
 } from "../lib/api";
 import { NAVY, TEAL } from "../lib/colors";
+import PageHero from "../components/PageHero";
+import type { Tone } from "../components/ui";
 
 type Msg = { kind: "ok" | "err"; text: string } | null;
 
@@ -65,7 +67,7 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 10, color: "#6b7280" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 10, color: "var(--soft-muted)" }}>
         <Loader2 size={26} className="spin" />
         <div style={{ fontSize: 13 }}>{t("pfLoading")}</div>
       </div>
@@ -140,14 +142,15 @@ export default function Profile() {
   const initials = profile.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
 
   return (
-    <main style={{ height: "100%", overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+    <main style={{ height: "100%", overflowY: "auto", background: "var(--mac-bg)", padding: "0 0 32px" }}>
+      <PageHero title={t("titleProfile")} />
+      <div style={{ maxWidth: 832, margin: "0 auto", padding: "0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Header card: summary (like e-Operasi) + photo */}
-        <div className="card" style={{ padding: "20px 22px", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="card" style={{ padding: "22px 26px", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 360px", minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 18, fontWeight: 800, color: "#111827" }}>{profile.fullName || profile.username}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: profile.role === "admin" ? "#e0e7ff" : "#f3f4f6", color: profile.role === "admin" ? "#3730a3" : "#374151" }}>
+              <span style={{ fontSize: 18, fontWeight: 800, color: "var(--soft-text)" }}>{profile.fullName || profile.username}</span>
+              <span className="tag" style={{ background: profile.role === "admin" ? "var(--tint-violet)" : "var(--surface-3)", color: profile.role === "admin" ? "var(--ink-violet)" : "var(--soft-text-2)" }}>
                 {profile.role === "admin" ? t("roleAdmin") : t("roleStaff")}
               </span>
             </div>
@@ -166,37 +169,37 @@ export default function Profile() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: 150, flexShrink: 0 }}>
-            <div style={{ width: 120, height: 150, borderRadius: 10, overflow: "hidden", background: "#e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+            <div style={{ width: 120, height: 150, borderRadius: 16, overflow: "hidden", background: "var(--tint-blue)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
               {photoUrl
                 ? <img src={photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <span style={{ fontSize: 34, fontWeight: 800, color: "#9ca3af" }}>{initials}</span>}
+                : <span style={{ fontSize: 34, fontWeight: 800, color: "var(--ink-blue)" }}>{initials}</span>}
               {photoBusy && (
-                <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Loader2 size={22} className="spin" color={NAVY} />
                 </div>
               )}
             </div>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={onPickPhoto} style={{ display: "none" }} />
             <button onClick={() => fileRef.current?.click()} disabled={photoBusy}
-              style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: TEAL, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--soft-accent)", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>
               <Camera size={13} /> {t("pfUpdatePhoto")}
             </button>
             {profile.hasPhoto && (
               <button onClick={onRemovePhoto} disabled={photoBusy}
-                style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#9ca3af", fontSize: 11.5, cursor: "pointer", padding: 0 }}>
+                style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--soft-faint)", fontSize: 11.5, cursor: "pointer", padding: 0 }}>
                 <Trash2 size={12} /> {t("pfRemovePhoto")}
               </button>
             )}
-            <div style={{ fontSize: 10.5, color: "#9ca3af", textAlign: "center" }}>{t("pfPhotoHint")}</div>
-            {photoMsg && <div style={{ fontSize: 11, color: photoMsg.kind === "ok" ? "#047857" : "#b91c1c", textAlign: "center" }}>{photoMsg.text}</div>}
+            <div style={{ fontSize: 10.5, color: "var(--soft-faint)", textAlign: "center" }}>{t("pfPhotoHint")}</div>
+            {photoMsg && <div style={{ fontSize: 11, color: photoMsg.kind === "ok" ? "var(--ok-ink)" : "var(--bad-ink)", textAlign: "center" }}>{photoMsg.text}</div>}
           </div>
         </div>
 
         {/* Account information */}
-        <Section icon={<User size={15} color={NAVY} />} title={t("pfAccount")} sub={t("pfAccountSub")}>
+        <Section icon={<User size={18} />} tone="blue" title={t("pfAccount")} sub={t("pfAccountSub")}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Field label={t("pfUsername")}><input type="text" value={profile.username} disabled style={{ background: "#f9fafb", color: "#6b7280" }} /></Field>
-            <Field label={t("pfRole")}><input type="text" value={profile.role === "admin" ? t("roleAdmin") : t("roleStaff")} disabled style={{ background: "#f9fafb", color: "#6b7280" }} /></Field>
+            <Field label={t("pfUsername")}><input type="text" value={profile.username} disabled style={{ background: "var(--surface-2)", color: "var(--soft-muted)" }} /></Field>
+            <Field label={t("pfRole")}><input type="text" value={profile.role === "admin" ? t("roleAdmin") : t("roleStaff")} disabled style={{ background: "var(--surface-2)", color: "var(--soft-muted)" }} /></Field>
             <Field label={t("pfFullName")}><input type="text" value={name} onChange={(e) => { setName(e.target.value); setAccMsg(null); }} /></Field>
             <Field label={t("pfEmail")}><input type="text" value={email} onChange={(e) => { setEmail(e.target.value); setAccMsg(null); }} /></Field>
             <Field label={t("pfJawatan")}><input type="text" value={jawatan} maxLength={150} onChange={(e) => { setJawatan(e.target.value); setAccMsg(null); }} /></Field>
@@ -209,7 +212,7 @@ export default function Profile() {
         </Section>
 
         {/* Change password */}
-        <Section icon={<KeyRound size={15} color={NAVY} />} title={t("pfPassword")} sub={t("pfPasswordSub")}>
+        <Section icon={<KeyRound size={18} />} tone="amber" title={t("pfPassword")} sub={t("pfPasswordSub")}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
             <Field label={t("fieldCurrentPassword")}><input type="password" value={current} onChange={(e) => { setCurrent(e.target.value); setPwMsg(null); }} autoComplete="current-password" /></Field>
             <Field label={t("pfNewPassword")}><input type="password" value={next} onChange={(e) => { setNext(e.target.value); setPwMsg(null); }} autoComplete="new-password" /></Field>
@@ -221,7 +224,7 @@ export default function Profile() {
         </Section>
 
         {/* Display settings */}
-        <Section icon={<SlidersHorizontal size={15} color={NAVY} />} title={t("pfDisplay")} sub={t("pfDisplaySub")}>
+        <Section icon={<SlidersHorizontal size={18} />} tone="violet" title={t("pfDisplay")} sub={t("pfDisplaySub")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <SettingRow label={t("pfLanguage")}>
               <Segmented<Lang> value={lang} onChange={setLang} options={[["ms", "Bahasa Melayu"], ["en", "English"]]} />
@@ -229,7 +232,7 @@ export default function Profile() {
             <SettingRow label={t("pfTextSize")}>
               <TextSizeControl value={textSize} onChange={setTextSize} resetLabel={t("pfReset")} />
             </SettingRow>
-            <div style={{ fontSize: 12, color: "#6b7280", marginTop: -4 }}>{t("pfTextSizeHint")}</div>
+            <div style={{ fontSize: 12, color: "var(--soft-muted)", marginTop: -4 }}>{t("pfTextSizeHint")}</div>
           </div>
         </Section>
       </div>
@@ -240,21 +243,25 @@ export default function Profile() {
 function InfoRow({ label, value, empty, italic }: { label: string; value: string | null; empty: string; italic?: boolean }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "150px 12px 1fr", fontSize: 12.5, padding: "3px 0", fontStyle: italic ? "italic" : undefined }}>
-      <span style={{ fontWeight: 700, color: "#374151", textTransform: "uppercase", fontSize: 11.5, letterSpacing: "0.03em", paddingTop: 1 }}>{label}</span>
-      <span style={{ color: "#9ca3af" }}>:</span>
-      <span style={{ fontWeight: value ? 600 : 400, color: value ? "#111827" : "#9ca3af" }}>{value || empty}</span>
+      <span style={{ fontWeight: 700, color: "var(--soft-text-2)", textTransform: "uppercase", fontSize: 11.5, letterSpacing: "0.03em", paddingTop: 1 }}>{label}</span>
+      <span style={{ color: "var(--soft-faint)" }}>:</span>
+      <span style={{ fontWeight: value ? 600 : 400, color: value ? "var(--soft-text)" : "var(--soft-faint)" }}>{value || empty}</span>
     </div>
   );
 }
 
-function Section({ icon, title, sub, children }: { icon: React.ReactNode; title: string; sub: string; children: React.ReactNode }) {
+function Section({ icon, tone, title, sub, children }: { icon: React.ReactNode; tone: Tone; title: string; sub: string; children: React.ReactNode }) {
   return (
-    <div className="card" style={{ padding: "18px 22px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {icon}
-        <span style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{title}</span>
+    <div className="card" style={{ padding: "22px 26px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 12, flexShrink: 0, background: `var(--tint-${tone})`, color: `var(--ink-${tone})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--soft-text)" }}>{title}</div>
+          <div style={{ fontSize: 12, color: "var(--soft-muted)", marginTop: 2 }}>{sub}</div>
+        </div>
       </div>
-      <div style={{ fontSize: 12, color: "#6b7280", margin: "4px 0 14px" }}>{sub}</div>
       {children}
     </div>
   );
@@ -273,7 +280,7 @@ function Footer({ msg, children }: { msg: Msg; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
       {msg && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: msg.kind === "ok" ? "#047857" : "#b91c1c", marginRight: "auto" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: msg.kind === "ok" ? "var(--ok-ink)" : "var(--bad-ink)", marginRight: "auto" }}>
           {msg.kind === "ok" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
           {msg.text}
         </span>
@@ -285,8 +292,7 @@ function Footer({ msg, children }: { msg: Msg; children: React.ReactNode }) {
 
 function PrimaryBtn({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} disabled={disabled}
-      style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: disabled ? "#cbd5e1" : NAVY, color: "#fff", fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer" }}>
+    <button type="button" className="soft-pill primary" onClick={onClick} disabled={disabled}>
       {children}
     </button>
   );
@@ -295,7 +301,7 @@ function PrimaryBtn({ onClick, disabled, children }: { onClick: () => void; disa
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-      <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--soft-text-2)" }}>{label}</span>
       {children}
     </div>
   );
@@ -310,9 +316,9 @@ function TextSizeControl({ value, onChange, resetLabel }: { value: number; onCha
   const shown = draft ?? value;
   const commit = () => { if (draft != null) { onChange(draft); setDraft(null); } };
   const iconBtn = (disabled: boolean) => ({
-    width: 30, height: 30, borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff",
+    width: 32, height: 32, borderRadius: 999, border: "1px solid var(--pill-border)", background: "var(--surface)",
     display: "flex", alignItems: "center", justifyContent: "center",
-    cursor: disabled ? "not-allowed" : "pointer", color: disabled ? "#cbd5e1" : NAVY,
+    cursor: disabled ? "not-allowed" : "pointer", color: disabled ? "var(--soft-faint)" : "var(--soft-accent)",
   } as const);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -323,14 +329,13 @@ function TextSizeControl({ value, onChange, resetLabel }: { value: number; onCha
         type="range" min={TEXT_SIZE_MIN} max={TEXT_SIZE_MAX} step={STEP} value={shown}
         onChange={(e) => setDraft(Number(e.target.value))}
         onPointerUp={commit} onKeyUp={commit} onBlur={commit}
-        style={{ width: 200, accentColor: TEAL, cursor: "pointer" }}
+        style={{ width: 200, accentColor: "var(--soft-accent)", cursor: "pointer" }}
       />
       <button onClick={() => onChange(value + STEP)} disabled={value >= TEXT_SIZE_MAX} style={iconBtn(value >= TEXT_SIZE_MAX)} title="+">
         <Plus size={14} />
       </button>
-      <span style={{ minWidth: 48, textAlign: "right", fontSize: 13.5, fontWeight: 700, color: NAVY }}>{shown}%</span>
-      <button onClick={() => onChange(TEXT_SIZE_DEFAULT)} disabled={value === TEXT_SIZE_DEFAULT}
-        style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, fontWeight: 600, cursor: value === TEXT_SIZE_DEFAULT ? "not-allowed" : "pointer", color: value === TEXT_SIZE_DEFAULT ? "#cbd5e1" : "#374151" }}>
+      <span style={{ minWidth: 48, textAlign: "right", fontSize: 13.5, fontWeight: 600, color: "var(--soft-text)" }}>{shown}%</span>
+      <button type="button" className="soft-pill small" onClick={() => onChange(TEXT_SIZE_DEFAULT)} disabled={value === TEXT_SIZE_DEFAULT}>
         <RotateCcw size={12} /> {resetLabel}
       </button>
     </div>
@@ -339,14 +344,9 @@ function TextSizeControl({ value, onChange, resetLabel }: { value: number; onCha
 
 function Segmented<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: [T, string][] }) {
   return (
-    <div style={{ display: "flex", background: "#e5e7eb", borderRadius: 8, padding: 3 }}>
+    <div className="soft-seg">
       {options.map(([v, label]) => (
-        <button key={v} onClick={() => onChange(v)}
-          style={{
-            border: "none", cursor: "pointer", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 600,
-            background: value === v ? "#fff" : "transparent", color: value === v ? TEAL : "#6b7280",
-            boxShadow: value === v ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
-          }}>
+        <button key={v} type="button" className={value === v ? "on" : ""} onClick={() => onChange(v)}>
           {label}
         </button>
       ))}

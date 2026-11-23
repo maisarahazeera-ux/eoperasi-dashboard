@@ -8,10 +8,24 @@ import { useTeachers, useTeacherLookups } from "../lib/useTeachers";
 import { NAVY, TEAL, schoolTypeChip } from "../lib/colors";
 import { shortSchoolName } from "../lib/schoolName";
 import { valueLabel, clean } from "../lib/labels";
+import { Tag } from "../components/ui";
+import { ListFooter, PageSizeSelect, usePager } from "../components/ListControls";
 import SearchableSelect from "../lib/SearchableSelect";
+import PageHero from "../components/PageHero";
+import ReportButton from "../components/ReportButton";
+import type { Report } from "../lib/report";
+import { useAuth } from "../context/AuthContext";
+import { pgbRole, isPgb, jawatanLabel, tempohKhidmatSekolah, tempohLantikanJawatan, bakiPerkhidmatan, type DurationWords } from "../lib/pgb";
+import { downloadTeacherListExcel } from "../lib/teacherListExcel";
+import { useDataDate } from "../lib/dataInfo";
+import { Crown, Info, Briefcase } from "lucide-react";
 import { useLanguage, type DictKey } from "../context/LanguageContext";
+import { fixMonth } from "../lib/dates";
 
-const PAGE_SIZE = 15;
+
+/** Position filter value meaning "every Pengetua & Guru Besar". */
+const PGB_ALL = "__PGB__";
+const PGB_ROLES: string[] = ["Guru Besar", "Guru Besar Cemerlang / Kanan", "Pengetua", "Pengetua Cemerlang / Kanan"];
 
 function totalWaktu(x: Teacher) {
   return x.subjects.reduce((sum, s) => sum + s.hours, 0);
@@ -41,23 +55,30 @@ function formatDate(dateStr: string | null, locale: string) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" });
+  return fixMonth(d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }));
 }
 
-export default function CarianGuru() {
+export default function CarianGuru({ initialQuery = "" }: { initialQuery?: string }) {
   const { t, lang } = useLanguage();
   const locale = lang === "en" ? "en-GB" : "ms-MY";
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const { teachers, error } = useTeachers();
   const { schoolTypes, schoolsByType, subjects, employmentStatuses } = useTeacherLookups(teachers);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [filterSchoolType, setFilterSchoolType] = useState("");
   const [filterSchool, setFilterSchool] = useState("");
   const [filterSubject, setFilterSubject] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  // One position filter: PGB_ALL (every Pengetua & Guru Besar, like PPD's "Senarai PGB")
+  // or one position, matched on the label shown in the Jawatan column.
+  const [filterPosition, setFilterPosition] = useState("");
+  const filterPgb = filterPosition === PGB_ALL || PGB_ROLES.includes(filterPosition);
+  const dataDate = useDataDate();
+  const words: DurationWords = { year: t("cgDurYear"), month: t("cgDurMonth"), day: t("cgDurDay"), retired: t("cgRetired"), yearOne: t("cgDurYear1"), monthOne: t("cgDurMonth1"), dayOne: t("cgDurDay1") };
   const [selected, setSelected] = useState<Teacher | null>(null);
   const [showIC, setShowIC] = useState(false);
-  const [page, setPage] = useState(1);
 
   const schoolOptions = useMemo(() => {
     const list = filterSchoolType
@@ -67,6 +88,24 @@ export default function CarianGuru() {
   }, [filterSchoolType, schoolsByType]);
 
   const subjectOptions = useMemo(() => subjects.map((s) => ({ value: s, label: s })), [subjects]);
+
+  // Positions in the data, with the number of teachers in each, e.g. "Guru Pemulihan (42)".
+  const positionOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const x of teachers ?? []) {
+      const p = jawatanLabel(x).trim();
+      if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+    }
+    const pgbTotal = (teachers ?? []).filter(isPgb).length;
+    const fmt = (n: number) => n.toLocaleString(locale);
+    // PGB first (all, then each role), then every other position A-Z.
+    const pgb = PGB_ROLES.filter((r) => counts.has(r));
+    const rest = Array.from(counts.keys()).filter((p) => !PGB_ROLES.includes(p)).sort((a, b) => a.localeCompare(b));
+    return [
+      ...(pgbTotal ? [{ value: PGB_ALL, label: `${t("cgPgbFilter")} (${fmt(pgbTotal)})` }] : []),
+      ...[...pgb, ...rest].map((p) => ({ value: p, label: `${p} (${fmt(counts.get(p)!)})` })),
+    ];
+  }, [teachers, locale, t]);
 
   const filtered = useMemo(() => {
     if (!teachers) return [];
@@ -82,21 +121,40 @@ export default function CarianGuru() {
       if (filterSchool && x.school !== filterSchool) return false;
       if (filterSubject && !x.subjects.some((s) => s.name === filterSubject)) return false;
       if (filterStatus && x.employmentStatus !== filterStatus) return false;
+      if (filterPosition === PGB_ALL) { if (!isPgb(x)) return false; }
+      else if (filterPosition && jawatanLabel(x).trim() !== filterPosition) return false;
       return true;
-    });
-  }, [teachers, query, filterSchoolType, filterSchool, filterSubject, filterStatus]);
+    }).sort((a, b) =>
+      // By school code (like the PPD list), the school head first, then by name.
+      (a.schoolCode || "~").localeCompare(b.schoolCode || "~") || a.school.localeCompare(b.school) ||
+      Number(isPgb(b)) - Number(isPgb(a)) || a.name.localeCompare(b.name));
+  }, [teachers, query, filterSchoolType, filterSchool, filterSubject, filterStatus, filterPosition]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pgbCounts = useMemo(() => {
+    const c = { total: 0, gb: 0, pengetua: 0, cemerlang: 0 };
+    for (const x of filtered) {
+      const r = pgbRole(x);
+      if (!r) continue;
+      c.total++;
+      if (r.startsWith("Guru Besar")) c.gb++; else c.pengetua++;
+      if (r.includes("Cemerlang")) c.cemerlang++;
+    }
+    return c;
+  }, [filtered]);
+  const missingNewFields = !!teachers?.length && teachers.every((x) => !x.schoolCode);
+
+  const pager = usePager(filtered.length, filtered);
+  const setPage = pager.setPage;
+  const paginated = pager.slice(filtered);
 
   // Every filter change goes back to page 1.
   const withReset = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1); };
 
-  const isDirty = query || filterSchoolType || filterSchool || filterSubject || filterStatus;
+  const isDirty = query || filterSchoolType || filterSchool || filterSubject || filterStatus || filterPosition;
 
   function clearAll() {
     setQuery(""); setFilterSchoolType(""); setFilterSchool("");
-    setFilterSubject(""); setFilterStatus(""); setPage(1);
+    setFilterSubject(""); setFilterStatus(""); setFilterPosition(""); setPage(1);
   }
 
   if (error) {
@@ -124,15 +182,88 @@ export default function CarianGuru() {
     noMatchLabel: t("filterNoMatch"),
   };
 
+  // Teacher list in the layout of PPD's "Senarai Pengetua dan Guru Besar" file.
+  // It has IC numbers and addresses, so the download is for admins only.
+  const listHeaders = [
+    t("cgKodSek"), t("cgNamaSek"), t("cgNama"), t("cgNoKp"), t("cgJawatan"), t("cgGred"),
+    t("cgLantikanJawatan"), t("cgKhidmatSekolah"), t("cgTarikhBersara"), t("cgSubjekAjar"), t("cgAlamat"),
+    t("cgTempohKhidmatSek"), t("cgTempohLantikan"), t("cgBaki"),
+  ];
+  const buildReport = (): Report => {
+    const filtersText = [
+      query && `${t("rpSearch")}: ${query}`,
+      filterPosition && `${t("cgJawatan")}: ${filterPosition === PGB_ALL ? t("cgPgbFilter") : filterPosition}`,
+      filterSchoolType && `${t("filterSchoolType")}: ${filterSchoolType}`,
+      filterSchool && `${t("filterSchoolName")}: ${filterSchool}`,
+      filterSubject && `${t("filterSubject")}: ${filterSubject}`,
+      filterStatus && `${t("filterEmployment")}: ${valueLabel(filterStatus, lang)}`,
+    ].filter((v): v is string => !!v);
+    const yn = (b: boolean) => (b ? t("rpYes") : t("rpNo"));
+    const title = filterPgb ? t("xlTitlePgb") : t("xlTitleAll");
+    const dataDateText = new Date(`${dataDate}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
+    const summary: [string, number][] = filterPgb
+      ? [[t("cgPgbTotal"), pgbCounts.total], [t("cgGuruBesar"), pgbCounts.gb], [t("cgPengetua"), pgbCounts.pengetua], [t("cgPgbCemerlang"), pgbCounts.cemerlang]]
+      : [[t("ovTotalTeachers"), filtered.length], [t("cgPgbTotal"), pgbCounts.total]];
+    const fullHeaders = [
+      t("cgKodSek"), t("cgColName"), t("cgColIc"), t("cgGender"), t("cgDob"), t("cgAge"), t("cgRace"), t("cgReligion"), t("cgMarital"),
+      t("cgNationality"), t("cgColSchool"), t("cgColType"), t("cgColPosition"), t("cgGredHakiki"), t("cgGredPenyandang"),
+      t("cgEmployment"), t("cgServiceStatus"), t("cgFirstAppt"), t("cgLantikanJawatan"), t("cgKhidmatSekolah"), t("cgRetirement"),
+      t("cgQualification"), t("cgOpsyen1"), t("cgOpsyen2"), t("rpColSubjects"), t("cgTotalHours"), t("cgTugasKhas"),
+      t("cgCemerlang"), t("rpColPhone"), t("rpColEmail"), t("rpColAddress"),
+    ];
+    const fullRow = (x: Teacher) => [
+      x.schoolCode || null, x.name, x.icNumber, x.gender === "L" ? t("genderL") : x.gender === "P" ? t("genderP") : x.gender,
+      x.dateOfBirth, yearsSince(x.dateOfBirth), valueLabel(x.race ?? "", lang) || null, valueLabel(x.religion ?? "", lang) || null,
+      valueLabel(x.maritalStatus ?? "", lang) || null, x.nationality,
+      x.school, x.schoolType, x.position, x.gredHakiki, x.gredPenyandang, x.employmentStatus ? valueLabel(x.employmentStatus, lang) : null,
+      x.serviceStatus ? valueLabel(x.serviceStatus, lang) : null, x.firstAppointmentDate, x.tarikhLantikanJawatanSemasa,
+      x.tarikhKhidmatSekolahSemasa, x.retirementDate, clean(x.qualification) || null,
+      clean(x.opsyen1) || null, clean(x.opsyen2) || null, x.subjects.map((s) => `${s.name} (${s.hours})`).join("; ") || null,
+      totalWaktu(x), clean(x.tugasKhas) || null, yn(x.guruCemerlang), x.phone, x.email, x.address,
+    ];
+    return {
+      title,
+      filters: filtersText,
+      // CSV: the same 14 columns, with the periods worked out as of today.
+      tables: [{
+        name: title, title: `${title} (${filtered.length.toLocaleString(locale)})`,
+        columns: listHeaders.map((h, i) => ({ header: h, format: i >= 6 && i <= 8 ? "date" as const : undefined })),
+        rows: filtered.map((x) => [
+          x.schoolCode || null, x.school, x.name, x.icNumber, jawatanLabel(x), x.gredPenyandang,
+          x.tarikhLantikanJawatanSemasa, x.tarikhKhidmatSekolahSemasa, x.retirementDate,
+          x.subjects.map((s) => s.name).join("; ") || null, x.address,
+          tempohKhidmatSekolah(x, words) || null, tempohLantikanJawatan(x, words) || null, bakiPerkhidmatan(x, words) || null,
+        ]),
+      }],
+      // Excel: the PPD layout, with live formulas.
+      excel: (meta) => downloadTeacherListExcel(filtered, {
+        title,
+        source: t("xlSource").replace("{date}", dataDateText),
+        calcDate: t("xlCalcDate"),
+        note: t("xlNote"),
+        filters: filtersText.length ? `${t("rpFilters")}: ${filtersText.join(" · ")}` : null,
+        summary,
+        headers: listHeaders,
+        words: { year: t("cgDurYear"), month: t("cgDurMonth"), day: t("cgDurDay"), retired: t("cgRetired"), yearOne: t("cgDurYear1"), monthOne: t("cgDurMonth1"), dayOne: t("cgDurDay1") },
+        fullSheet: t("xlFullSheet"),
+        fullHeaders,
+        confidential: meta.labels.confidential,
+      }, `e-Operasi_${title.replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_|_$/g, "")}_${meta.dataDate}.xlsx`, fullRow),
+    };
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <PageHero title={t("titleCarianGuru")} />
       {/* Filter bar */}
-      <div style={{ padding: "12px 24px", background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
-        <div style={{ position: "relative", minWidth: 230, flex: "1 1 230px" }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} color="#9ca3af" />
-          <input type="text" placeholder={t("cgSearchPlaceholder")} value={query}
-            onChange={(e) => withReset(setQuery)(e.target.value)} style={{ paddingLeft: 30 }} />
-        </div>
+      <div style={{ padding: "4px 32px 16px", background: "transparent", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+        <label className="list-search" style={{ minWidth: 230 }}>
+          <Search size={14} />
+          <input type="text" placeholder={t("cgSearchPlaceholder")} aria-label={t("cgSearchPlaceholder")} value={query}
+            onChange={(e) => withReset(setQuery)(e.target.value)} />
+          {query && <button type="button" aria-label="×" onClick={() => withReset(setQuery)("")}><X size={13} /></button>}
+        </label>
+        <PageSizeSelect pager={pager} />
         <div style={{ minWidth: 130 }}>
           <select value={filterSchoolType}
             onChange={(e) => { setFilterSchoolType(e.target.value); setFilterSchool(""); setPage(1); }}>
@@ -154,27 +285,49 @@ export default function CarianGuru() {
             {employmentStatuses.map((s) => <option key={s} value={s}>{valueLabel(s, lang)}</option>)}
           </select>
         </div>
+        <SearchableSelect pill value={filterPosition} options={positionOptions}
+          onChange={withReset(setFilterPosition)} allLabel={t("cgAllPositions")} {...searchLabels}
+          icon={filterPgb ? <Crown size={13} /> : <Briefcase size={13} />} />
         {isDirty && (
           <button onClick={clearAll}
-            style={{ padding: "7px 10px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            className="soft-pill small ghost">
             <X size={12} /> {t("cgClear")}
           </button>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>
-          {filtered.length.toLocaleString(locale)} {t("cgRecordsFound")}
-        </span>
+        {isAdmin && filtered.length > 0 && (
+          <span style={{ marginLeft: "auto" }}><ReportButton getReport={buildReport} formats={["excel", "csv"]} title={`${t("rpThisList")} · ${t("rpAdminOnly")}`} /></span>
+        )}
       </div>
+
+      {(filterPgb || missingNewFields) && (
+        <div style={{ padding: "0 32px 12px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", flexShrink: 0 }}>
+          {filterPgb && ([
+            [t("cgPgbTotal"), pgbCounts.total, "blue"], [t("cgGuruBesar"), pgbCounts.gb, "teal"],
+            [t("cgPengetua"), pgbCounts.pengetua, "violet"], [t("cgPgbCemerlang"), pgbCounts.cemerlang, "amber"],
+          ] as [string, number, string][]).map(([label, n, tone]) => (
+            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "8px 14px", borderRadius: 12, background: `var(--tint-${tone})`, color: `var(--ink-${tone})` }}>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
+              <span style={{ fontSize: 18, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{n.toLocaleString(locale)}</span>
+            </div>
+          ))}
+          {missingNewFields && isAdmin && (
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "var(--warn-ink)", background: "var(--warn-bg)", border: "1px solid var(--warn-line)", borderRadius: 10, padding: "7px 12px" }}>
+              <Info size={14} style={{ flexShrink: 0 }} /> {t("cgNeedReupload")}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Table + detail panel */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        <div style={{ flex: 1, overflowY: "auto", background: "#F5F5F5", padding: 24 }}>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ flex: 1, overflowY: "auto", background: "var(--mac-bg)", padding: "8px 32px 28px" }}>
+          <div className="card" style={{ overflowX: "auto" }}>
+            <table className="soft-table" style={{ minWidth: 1280 }}>
               <thead>
-                <tr style={{ background: NAVY }}>
-                  {(["", "cgColName", "cgColIc", "cgColSchool", "cgColType", "cgColPosition", "cgColGrade", "cgColSubject"] as (DictKey | "")[]).map((h, i) => (
-                    <th key={i} style={{ padding: "9px 13px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap" }}>
-                      {h ? t(h) : ""}
+                <tr>
+                  {(["cgKodSek", "cgNamaSek", "cgNama", "cgNoKp", "cgJawatan", "cgGred", "cgLantikanJawatan", "cgKhidmatSekolah", "cgTarikhBersara", "cgBaki"] as DictKey[]).map((h) => (
+                    <th key={h} style={{ whiteSpace: h.startsWith("cgLantikan") || h.startsWith("cgKhidmat") ? "normal" : "nowrap", minWidth: h === "cgLantikanJawatan" || h === "cgKhidmatSekolah" ? 96 : undefined }}>
+                      {t(h)}
                     </th>
                   ))}
                 </tr>
@@ -183,45 +336,45 @@ export default function CarianGuru() {
                 {paginated.map((x, i) => (
                   <tr key={x.id} className="table-row-hover"
                     onClick={() => { setSelected(x); setShowIC(false); }}
-                    style={{ background: selected?.id === x.id ? "#e0f2fe" : i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "9px 13px" }}>
-                      <Avatar gender={x.gender} size={32} />
-                    </td>
-                    <td style={{ padding: "9px 13px", fontSize: 13, fontWeight: 500, color: "#111827" }}>{x.name}</td>
-                    <td style={{ padding: "9px 13px", fontSize: 11.5, color: "#6b7280", fontFamily: "monospace", whiteSpace: "nowrap" }}>{maskIC(x.icNumber)}</td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#374151", maxWidth: 200 }} title={x.school}>
+                    style={{ background: selected?.id === x.id ? "var(--hover)" : undefined }} data-i={i}>
+                    <td style={{ padding: "9px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{x.schoolCode || "-"}</td>
+                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", maxWidth: 210 }} title={x.school}>
                       <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortSchoolName(x.school)}</div>
+                      <span style={{ ...schoolTypeChip(x.schoolType), marginTop: 3, display: "inline-block" }}>{x.schoolType}</span>
                     </td>
-                    <td style={{ padding: "9px 13px" }}>
-                      <span style={schoolTypeChip(x.schoolType)}>{x.schoolType}</span>
+                    <td style={{ padding: "9px 12px", fontSize: 13, fontWeight: 500, color: "var(--soft-text)", minWidth: 180 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Avatar gender={x.gender} size={26} />
+                        <span>{x.name}</span>
+                      </div>
                     </td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#374151", maxWidth: 200 }} title={x.position ?? ""}>
-                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.position || "-"}</div>
+                    <td style={{ padding: "9px 12px", fontSize: 11.5, color: "var(--soft-muted)", fontFamily: "monospace", whiteSpace: "nowrap" }}>{maskIC(x.icNumber)}</td>
+                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", maxWidth: 190 }} title={x.position ?? ""}>
+                      {pgbRole(x)
+                        ? <span className="tag tag-warn" style={{ whiteSpace: "nowrap" }}><Crown size={11} /> {pgbRole(x)}</span>
+                        : <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.position || "-"}</div>}
                     </td>
-                    <td style={{ padding: "9px 13px" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, background: "#f3f4f6", color: NAVY, padding: "2px 7px", borderRadius: 4 }}>{x.gredHakiki || "-"}</span>
+                    <td style={{ padding: "9px 12px" }}>
+                      <span className="tag tag-info">{x.gredPenyandang || "-"}</span>
                     </td>
-                    <td style={{ padding: "9px 13px", fontSize: 12, color: "#6b7280" }}>{x.subjects[0]?.name ?? "-"}</td>
+                    <DateWithDuration date={formatDate(x.tarikhLantikanJawatanSemasa, locale)} duration={tempohLantikanJawatan(x, words)} />
+                    <DateWithDuration date={formatDate(x.tarikhKhidmatSekolahSemasa, locale)} duration={tempohKhidmatSekolah(x, words)} />
+                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{formatDate(x.retirementDate, locale) || "-"}</td>
+                    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>{bakiPerkhidmatan(x, words) || "-"}</td>
                   </tr>
                 ))}
                 {paginated.length === 0 && (
-                  <tr><td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 13 }}>{t("cgNoRecords")}</td></tr>
+                  <tr><td colSpan={10} style={{ padding: 40, textAlign: "center", color: "var(--soft-faint)", fontSize: 13 }}>{t("cgNoRecords")}</td></tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 14 }}>
-              <PageBtn label={t("cgPrev")} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} />
-              <span style={{ fontSize: 12, color: "#6b7280" }}>{t("cgPage")} {page} / {totalPages}</span>
-              <PageBtn label={t("cgNext")} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} />
-            </div>
-          )}
+          <ListFooter pager={pager} />
         </div>
 
         {selected && (
-          <aside className="sidebar-slide" style={{ width: 390, background: "#fff", borderLeft: "1px solid #e5e7eb", overflowY: "auto", flexShrink: 0 }}>
+          <aside className="sidebar-slide" style={{ width: 390, background: "var(--surface)", borderLeft: "1px solid var(--soft-line)", overflowY: "auto", flexShrink: 0 }}>
             <Panel teacher={selected} showIC={showIC} setShowIC={setShowIC} onClose={() => setSelected(null)} locale={locale} />
           </aside>
         )}
@@ -238,23 +391,27 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
   );
 }
 
+/** Date on top, time since then ("x tahun y bulan z hari") underneath in small grey text. */
+function DateWithDuration({ date, duration }: { date: string; duration: string }) {
+  return (
+    <td style={{ padding: "9px 12px", fontSize: 12, color: "var(--soft-text-2)", whiteSpace: "nowrap" }}>
+      <div>{date || "-"}</div>
+      {date && duration && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-teal)", marginTop: 2 }}>{duration}</div>
+      )}
+    </td>
+  );
+}
+
 function Avatar({ gender, size }: { gender: string; size: number }) {
   const male = gender === "L";
   return (
-    <div style={{ width: size, height: size, borderRadius: "50%", background: male ? "#dbeafe" : "#ccfbf1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <User size={size * 0.47} color={male ? "#2F62B5" : "#0F9488"} />
+    <div style={{ width: size, height: size, borderRadius: "50%", background: male ? "var(--tint-blue)" : "var(--tint-rose)", color: male ? "var(--ink-blue)" : "var(--ink-rose)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <User size={size * 0.47} />
     </div>
   );
 }
 
-function PageBtn({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled}
-      style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, cursor: disabled ? "not-allowed" : "pointer", color: disabled ? "#9ca3af" : NAVY }}>
-      {label}
-    </button>
-  );
-}
 
 function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
   teacher: Teacher; showIC: boolean; setShowIC: (v: boolean) => void; onClose: () => void; locale: string;
@@ -263,28 +420,29 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
   const age = yearsSince(x.dateOfBirth);
   const service = yearsSince(x.firstAppointmentDate);
   const yrs = lang === "en" ? "years" : "tahun";
+  const words: DurationWords = { year: t("cgDurYear"), month: t("cgDurMonth"), day: t("cgDurDay"), retired: t("cgRetired"), yearOne: t("cgDurYear1"), monthOne: t("cgDurMonth1"), dayOne: t("cgDurDay1") };
 
   return (
     <div>
-      <div style={{ background: NAVY, padding: "18px 18px 14px", position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ background: "var(--tint-blue)", padding: "20px 20px 16px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ display: "flex", gap: 13, alignItems: "center" }}>
             <Avatar gender={x.gender} size={50} />
             <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{x.name}</div>
-              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>{x.position} · {x.gredHakiki}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--soft-text)", lineHeight: 1.3 }}>{x.name}</div>
+              <div style={{ fontSize: 11.5, color: "var(--soft-text-2)", marginTop: 2 }}>{jawatanLabel(x)} · {x.gredPenyandang}</div>
               <div style={{ marginTop: 6, display: "flex", gap: 5, flexWrap: "wrap" }}>
-                <span style={{ ...schoolTypeChip(x.schoolType), background: "#fff" }}>{x.schoolType}</span>
+                <span style={{ ...schoolTypeChip(x.schoolType), background: "var(--surface)" }}>{x.schoolType}</span>
                 <Pill ok={x.employmentStatus === "Tetap"} text={valueLabel(x.employmentStatus, lang)} />
                 <Pill ok={x.serviceStatus === "Aktif"} text={valueLabel(x.serviceStatus, lang)} />
               </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", borderRadius: 6, padding: "4px 6px", cursor: "pointer", color: "#fff", display: "flex" }}>
+          <button onClick={onClose} aria-label="Tutup" style={{ background: "var(--surface)", border: "none", borderRadius: 999, padding: 6, cursor: "pointer", color: "var(--soft-text-2)", display: "flex" }}>
             <X size={16} />
           </button>
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.65)" }}>{x.school}</div>
+        <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--soft-muted)" }}>{x.schoolCode ? `${x.schoolCode} · ` : ""}{x.school}</div>
       </div>
 
       <div style={{ paddingBottom: 24 }}>
@@ -296,10 +454,10 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
           <Row label={t("cgRace")} value={valueLabel(x.race, lang)} />
           <Row label={t("cgReligion")} value={valueLabel(x.religion, lang)} />
           <Row label={t("cgNationality")} value={x.nationality ?? ""} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f9fafb" }}>
-            <span style={{ fontSize: 12, color: "#6b7280" }}>{t("cgColIc")}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--surface-2)" }}>
+            <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>{t("cgColIc")}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "#111827" }}>{showIC ? x.icNumber : maskIC(x.icNumber)}</span>
+              <span style={{ fontSize: 12, fontWeight: 500, fontFamily: "monospace", color: "var(--soft-text)" }}>{showIC ? x.icNumber : maskIC(x.icNumber)}</span>
               <button onClick={() => setShowIC(!showIC)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: TEAL }}>
                 {showIC ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
@@ -313,10 +471,15 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
           <Row label={t("cgEmployment")} value={valueLabel(x.employmentStatus, lang)} />
           <Row label={t("cgFirstAppt")} value={formatDate(x.firstAppointmentDate, locale)} />
           <Row label={t("cgServiceLength")} value={service != null ? `${service} ${yrs}` : ""} />
+          <Row label={t("cgLantikanJawatan")} value={formatDate(x.tarikhLantikanJawatanSemasa, locale)} />
+          <Row label={t("cgTempohLantikan")} value={tempohLantikanJawatan(x, words)} />
+          <Row label={t("cgKhidmatSekolah")} value={formatDate(x.tarikhKhidmatSekolahSemasa, locale)} />
+          <Row label={t("cgTempohKhidmatSek")} value={tempohKhidmatSekolah(x, words)} />
           <PillRow label={t("cgServiceStatus")} ok={x.serviceStatus === "Aktif"} text={valueLabel(x.serviceStatus, lang)} />
           <PillRow label={t("cgInduction")} ok={x.statusInduksi === "Selesai"} text={valueLabel(x.statusInduksi, lang)} />
           <PillRow label={t("cgConfirmed")} ok={x.sahPerkhidmatan === "Disahkan"} text={valueLabel(x.sahPerkhidmatan, lang)} />
           <Row label={t("cgRetirement")} value={formatDate(x.retirementDate, locale)} />
+          <Row label={t("cgBaki")} value={bakiPerkhidmatan(x, words)} />
           <Row label={t("cgTugasKhas")} value={clean(x.tugasKhas)} />
           <Row label={t("cgCemerlang")} value={x.guruCemerlang ? `${t("yes")}${x.guruCemerlangBidang ? ` (${x.guruCemerlangBidang})` : ""}` : t("no")} />
           <Row label={t("cgTotalHours")} value={`${totalWaktu(x)} ${t("cgPeriods")}`} />
@@ -330,14 +493,14 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
 
         <Section title={t("cgSecSubjects")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 5, paddingTop: 4 }}>
-            {x.subjects.length === 0 && <div style={{ fontSize: 12, color: "#9ca3af" }}>{t("cgNoSubjects")}</div>}
+            {x.subjects.length === 0 && <div style={{ fontSize: 12, color: "var(--soft-faint)" }}>{t("cgNoSubjects")}</div>}
             {x.subjects.map((s, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f9fafb", borderRadius: 7, padding: "7px 10px" }}>
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface-2)", borderRadius: 7, padding: "7px 10px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <BookOpen size={13} color={TEAL} />
-                  <span style={{ fontSize: 12.5, color: "#111827", fontWeight: 500 }}>{s.name}</span>
+                  <span style={{ fontSize: 12.5, color: "var(--soft-text)", fontWeight: 500 }}>{s.name}</span>
                 </div>
-                <span style={{ fontSize: 11, color: "#6b7280" }}>{s.hours} {t("cgPeriodsPerWeek")}</span>
+                <span style={{ fontSize: 11, color: "var(--soft-muted)" }}>{s.hours} {t("cgPeriodsPerWeek")}</span>
               </div>
             ))}
           </div>
@@ -357,9 +520,9 @@ function Panel({ teacher: x, showIC, setShowIC, onClose, locale }: {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: "1px solid #f3f4f6" }}>
+    <div style={{ borderBottom: "1px solid var(--surface-3)" }}>
       <div style={{ padding: "11px 18px 3px" }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.07em" }}>{title}</span>
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--soft-text)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{title}</span>
       </div>
       <div style={{ padding: "0 18px 10px" }}>{children}</div>
     </div>
@@ -368,9 +531,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "5px 0", borderBottom: "1px solid #f9fafb" }}>
-      <span style={{ fontSize: 12, color: "#6b7280", minWidth: 130, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 500, color: "#111827", textAlign: "right" }}>{value || "-"}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "5px 0", borderBottom: "1px solid var(--surface-2)" }}>
+      <span style={{ fontSize: 12, color: "var(--soft-muted)", minWidth: 130, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--soft-text)", textAlign: "right" }}>{value || "-"}</span>
     </div>
   );
 }
@@ -378,16 +541,14 @@ function Row({ label, value }: { label: string; value: string }) {
 function Pill({ ok, text }: { ok: boolean; text: string }) {
   if (!text) return null;
   return (
-    <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: ok ? "#d1fae5" : "#fef3c7", color: ok ? "#065f46" : "#92400e" }}>
-      {text}
-    </span>
+    <Tag kind={ok ? "ok" : "warn"}>{text}</Tag>
   );
 }
 
 function PillRow({ label, ok, text }: { label: string; ok: boolean; text: string }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f9fafb" }}>
-      <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--surface-2)" }}>
+      <span style={{ fontSize: 12, color: "var(--soft-muted)" }}>{label}</span>
       {text ? <Pill ok={ok} text={text} /> : <span style={{ fontSize: 12.5 }}>-</span>}
     </div>
   );
@@ -397,7 +558,7 @@ function CRow({ icon, value }: { icon: React.ReactNode; value: string }) {
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
       <div style={{ marginTop: 2, flexShrink: 0 }}>{icon}</div>
-      <span style={{ fontSize: 12.5, color: "#374151", lineHeight: 1.5 }}>{value || "-"}</span>
+      <span style={{ fontSize: 12.5, color: "var(--soft-text-2)", lineHeight: 1.5 }}>{value || "-"}</span>
     </div>
   );
 }

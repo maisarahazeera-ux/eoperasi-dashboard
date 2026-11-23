@@ -16,6 +16,7 @@ public class TeacherDto
     public string? Address { get; set; }
 
     public string School { get; set; } = "";
+    public string SchoolCode { get; set; } = "";
     public string SchoolType { get; set; } = "";
     public string SchoolDistrict { get; set; } = "";
 
@@ -25,6 +26,8 @@ public class TeacherDto
     public string? EmploymentStatus { get; set; }
     public string? ServiceStatus { get; set; }
     public DateOnly? FirstAppointmentDate { get; set; }
+    public DateOnly? TarikhLantikanJawatanSemasa { get; set; }
+    public DateOnly? TarikhKhidmatSekolahSemasa { get; set; }
     public string? Qualification { get; set; }
     public string? Opsyen1 { get; set; }
     public string? Opsyen2 { get; set; }

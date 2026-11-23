@@ -25,6 +25,7 @@ EOperasiAPI/appsettings.Production.json
 .env
 .env.*
 !.env.example
+!e-Operasi prototype/.env.server
 
 # ---------- 3. User uploads ----------
 # Profile photos uploaded through the Profile page.
@@ -34,6 +35,7 @@ EOperasiAPI/uploads/
 # .NET
 EOperasiAPI/bin/
 EOperasiAPI/obj/
+EOperasiAPI/wwwroot/
 *.user
 .vs/
 

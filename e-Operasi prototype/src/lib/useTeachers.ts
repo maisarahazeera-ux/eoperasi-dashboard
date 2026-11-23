@@ -8,6 +8,12 @@ import { sortEmploymentStatuses } from "./labels";
 let cache: { token: string; data: Teacher[] } | null = null;
 let inFlight: { token: string; promise: Promise<Teacher[]> } | null = null;
 
+/** Forget the cached list (after new SEPADU data is uploaded), so pages download it again. */
+export function clearTeachersCache() {
+  cache = null;
+  inFlight = null;
+}
+
 function load(token: string): Promise<Teacher[]> {
   if (cache?.token === token) return Promise.resolve(cache.data);
   if (inFlight?.token === token) return inFlight.promise;

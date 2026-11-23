@@ -1,9 +1,11 @@
 import type { SchoolType } from "../data/mockData";
 
-export const NAVY = "#1F3864";
+// Main accent (macOS-style blue). Was #1F3864 navy before the redesign.
+export const NAVY = "#2F62B5";
 export const TEAL = "#0D9488";
-export const ORANGE = "#F97316";
-export const CHART_COLORS = [NAVY, TEAL, ORANGE, "#6366f1", "#ec4899", "#84cc16", "#f59e0b", "#06b6d4", "#8b5cf6", "#14b8a6"];
+export const ORANGE = "#E5930A";
+// Calm palette for charts that need many colours (no neon lime/cyan).
+export const CHART_COLORS = ["#2F62B5", "#0F9488", "#E5930A", "#7866D6", "#D9577F", "#5B8DEF", "#3FB5A8", "#C27A06", "#9B8CE6", "#E07FA0"];
 
 // ---------- Chart palette ("Biru PPD") ----------
 // Validated for colour-blind safety. Colours follow the ENTITY, never its
@@ -44,13 +46,13 @@ export function schoolTypeChip(type: string) {
 
 export const GENDER_CHART_COLORS: Record<string, string> = {
   L: CHART.blue,
-  P: CHART.teal,
+  P: CHART.rose,
 };
 
 export const EMPLOYMENT_CHART_COLORS: Record<string, string> = {
   Tetap:    CHART.blue,
-  Kontrak:  CHART.teal,
-  Sandaran: CHART.amber,
+  Kontrak:  CHART.amber,
+  Sandaran: CHART.violet,
 };
 
 // ---------- Heat scale: fewer = teal/green, more = red ----------

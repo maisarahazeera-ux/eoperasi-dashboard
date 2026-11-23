@@ -20,6 +20,22 @@ public class RegisterRequest
     public string Password { get; set; } = "";
     public string FullName { get; set; } = "";
     public string Email { get; set; } = "";
+
+    // Work details (same fields as the Profile page). Department is optional.
+    public string? Jawatan { get; set; }
+    public string? JabatanBahagian { get; set; }
+    public string? Sektor { get; set; }
+}
+
+public class VerifyEmailRequest
+{
+    public string Token { get; set; } = "";
+}
+
+public class ResendVerificationRequest
+{
+    /// <summary>Username or email.</summary>
+    public string Login { get; set; } = "";
 }
 
 public class ForgotPasswordRequest

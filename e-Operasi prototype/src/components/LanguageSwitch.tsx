@@ -7,10 +7,10 @@ interface LanguageSwitchProps {
 export default function LanguageSwitch({ dark = false }: LanguageSwitchProps) {
   const { lang, setLang } = useLanguage();
 
-  const trackBg = dark ? "rgba(255,255,255,0.12)" : "#eef0f2";
-  const activeBg = dark ? "rgba(255,255,255,0.9)" : "#0b3d66";
-  const activeText = dark ? "#082c49" : "#fff";
-  const inactiveText = dark ? "rgba(255,255,255,0.65)" : "#6b7280";
+  const trackBg = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)";
+  const activeBg = dark ? "rgba(255,255,255,0.9)" : "#fff";
+  const activeText = dark ? "#082c49" : "#1D1D1F";
+  const inactiveText = dark ? "rgba(255,255,255,0.65)" : "#6E6E73";
 
   function Btn({ value, label }: { value: "ms" | "en"; label: string }) {
     const active = lang === value;
@@ -25,7 +25,8 @@ export default function LanguageSwitch({ dark = false }: LanguageSwitchProps) {
           fontSize: 10.5,
           fontWeight: 700,
           padding: "4px 9px",
-          borderRadius: 999,
+          borderRadius: dark ? 999 : 6,
+          boxShadow: active && !dark ? "0 1px 2px rgba(0,0,0,0.14)" : "none",
           cursor: "pointer",
         }}
       >
@@ -35,7 +36,7 @@ export default function LanguageSwitch({ dark = false }: LanguageSwitchProps) {
   }
 
   return (
-    <div style={{ display: "inline-flex", gap: 2, background: trackBg, borderRadius: 999, padding: 2 }}>
+    <div style={{ display: "inline-flex", gap: 2, background: trackBg, borderRadius: dark ? 999 : 8, padding: 2 }}>
       <Btn value="ms" label="BM" />
       <Btn value="en" label="EN" />
     </div>

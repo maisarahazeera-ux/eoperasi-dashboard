@@ -22,6 +22,83 @@ namespace EOperasiApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("EOperasiApi.Models.ActivityLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("At");
+
+                    b.ToTable("ActivityLogs");
+                });
+
+            modelBuilder.Entity("EOperasiApi.Models.DataImport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("DataDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FileNames")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImportedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImportedByName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SchoolCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubjectCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TeacherCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataImports");
+                });
+
             modelBuilder.Entity("EOperasiApi.Models.School", b =>
                 {
                     b.Property<int>("Id")
@@ -29,6 +106,10 @@ namespace EOperasiApi.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("District")
                         .IsRequired()
@@ -162,6 +243,12 @@ namespace EOperasiApi.Migrations
                     b.Property<string>("StatusInduksi")
                         .HasColumnType("text");
 
+                    b.Property<DateOnly?>("TarikhKhidmatSekolahSemasa")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("TarikhLantikanJawatanSemasa")
+                        .HasColumnType("date");
+
                     b.Property<string>("TugasKhas")
                         .HasColumnType("text");
 
@@ -213,8 +300,17 @@ namespace EOperasiApi.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("EmailVerifyExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailVerifyTokenHash")
                         .HasColumnType("text");
 
                     b.Property<string>("FullName")
@@ -254,6 +350,16 @@ namespace EOperasiApi.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Sektor")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StatusUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StatusUpdatedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("TextSize")

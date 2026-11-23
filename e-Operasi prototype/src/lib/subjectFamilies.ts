@@ -18,8 +18,8 @@ export const BIDANG_RULES: { bidang: string; keywords: string[] }[] = [
   { bidang: "Pendidikan Khas", keywords: ["KHAS", "MASALAH PEMBELAJARAN", "AUTISM", "PENGLIHATAN", "PENDENGARAN", "INKLUSIF", "INTEGRASI"] },
   { bidang: "Pemulihan", keywords: ["PEMULIHAN", "LINUS"] },
   { bidang: "Bimbingan & Kaunseling", keywords: ["KAUNSEL", "BIMBINGAN"] },
-  { bidang: "Bahasa Inggeris", keywords: ["INGGERIS", "TESL", "TESOL", "ENGLISH", "LANGUAGE ARTS", "LITERATURE"] },
-  { bidang: "Bahasa Melayu", keywords: ["MELAYU", "BAHASA KEBANGSAAN"] },
+  { bidang: "Bahasa Inggeris", keywords: ["INGGERIS", "TESL", "TESOL", "TEYL", "ENGLISH", "LANGUAGE ARTS", "LITERATURE"] },
+  { bidang: "Bahasa Melayu", keywords: ["MELAYU", "BAHASA KEBANGSAAN", "BAHASA MALAYSIA"] },
   { bidang: "Bahasa Cina", keywords: ["CINA", "MANDARIN", "CHINESE"] },
   { bidang: "Bahasa Tamil", keywords: ["TAMIL"] },
   { bidang: "Bahasa Arab", keywords: ["ARAB"] },
@@ -36,11 +36,17 @@ export const BIDANG_RULES: { bidang: string; keywords: string[] }[] = [
   { bidang: "Geografi", keywords: ["GEOGRAFI"] },
   { bidang: "Perniagaan / Ekonomi / Perakaunan", keywords: ["EKONOMI", "PERNIAGAAN", "PERAKAUNAN", "AKAUN", "PERDAGANGAN", "KEWANGAN", "KEUSAHAWANAN"] },
   { bidang: "Pengajian Am", keywords: ["PENGAJIAN AM"] },
+  { bidang: "Pengajian Malaysia", keywords: ["PENGAJIAN MALAYSIA"] },
 ];
 
 /** Extra bidang a teacher's opsyen also covers (e.g. Pemulihan teaches BM and Maths). */
 const OPSYEN_ALSO_COVERS: Record<string, string[]> = {
   "Pemulihan": ["Bahasa Melayu", "Matematik"],
+  // Malaysian Studies graduates teach these subjects (as advised by the PPD team).
+  "Pengajian Malaysia": ["Sejarah", "Bahasa Melayu", "Pengajian Am", "Geografi"],
+  // Sejarah and Geografi teachers may teach (STPM) Pengajian Am (agreed with the supervisor).
+  "Sejarah": ["Pengajian Am"],
+  "Geografi": ["Pengajian Am"],
 };
 
 /** Subjects that are not really a teaching subject and are ignored in matching. */
@@ -55,7 +61,10 @@ export function bidangOf(name: string | null | undefined): string[] {
   return COMPILED.filter((c) => c.re.test(up)).map((c) => c.bidang);
 }
 
-export type MatchStatus = "Sepadan" | "Tidak Sepadan" | "Tidak Dapat Ditentukan";
+export type MatchStatus = "Sepadan" | "Tidak Sepadan" | "Tidak Mengajar" | "Tidak Dapat Ditentukan";
+
+/** Why a teacher has no teaching subjects. */
+export type NotTeachingReason = "kaunseling" | "pool" | "tidakAktif" | "lain";
 
 export interface MatchResult {
   status: MatchStatus;
@@ -63,6 +72,8 @@ export interface MatchResult {
   matchedSubjects: Set<number>;
   /** Which opsyen (1 and/or 2) is covered by at least one taught subject. */
   matchedOpsyen: Set<1 | 2>;
+  /** Only for "Tidak Mengajar". */
+  reason?: NotTeachingReason;
 }
 
 export function matchOpsyen(x: Teacher): MatchResult {
@@ -84,8 +95,19 @@ export function matchOpsyen(x: Teacher): MatchResult {
     if (b.some((v) => cover2.has(v))) { matchedSubjects.add(i); matchedOpsyen.add(2); }
   });
 
-  // Not enough information to judge: no subjects, or no recognisable opsyen.
-  if (subjects.length === 0 || (cover1.size === 0 && cover2.size === 0)) {
+  // No teaching subjects: say why, instead of "can't be determined".
+  if (subjects.length === 0) {
+    const position = (x.position ?? "").toUpperCase();
+    const reason: NotTeachingReason =
+      cover1.has("Bimbingan & Kaunseling") || cover2.has("Bimbingan & Kaunseling") || /KAUNSEL|BIMBINGAN/.test(position) ? "kaunseling"
+      : /POOL/.test(position) ? "pool"
+      : x.serviceStatus !== "Aktif" ? "tidakAktif"
+      : "lain";
+    return { status: "Tidak Mengajar", matchedSubjects, matchedOpsyen, reason };
+  }
+
+  // Teaches, but the opsyen is too general or unknown to compare.
+  if (cover1.size === 0 && cover2.size === 0) {
     return { status: "Tidak Dapat Ditentukan", matchedSubjects, matchedOpsyen };
   }
   return {

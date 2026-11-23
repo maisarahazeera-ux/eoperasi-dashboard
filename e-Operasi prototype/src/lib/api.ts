@@ -18,6 +18,8 @@ export interface Teacher {
   address: string | null;
 
   school: string;
+  /** KOD SEKOLAH, e.g. JBA1001 (empty until data is uploaded again after this update). */
+  schoolCode: string;
   schoolType: string;
   schoolDistrict: string;
 
@@ -27,6 +29,10 @@ export interface Teacher {
   employmentStatus: string | null;
   serviceStatus: string | null;
   firstAppointmentDate: string | null;
+  /** Appointed to the current post. */
+  tarikhLantikanJawatanSemasa: string | null;
+  /** Started at the current school. */
+  tarikhKhidmatSekolahSemasa: string | null;
   qualification: string | null;
   opsyen1: string | null;
   opsyen2: string | null;
@@ -213,3 +219,201 @@ export const updatePreferences = (
   ...prefs,
   textSize: prefs.textSize === undefined ? undefined : String(prefs.textSize),
 });
+
+// ---------- SEPADU data (Kemas Kini Data) ----------
+
+export interface DataInfo {
+  /** Id of the latest upload; changes whenever an admin uploads new data. */
+  importId: number | null;
+  /** Date the current data was extracted from SEPADU (null = never uploaded through the Admin page). */
+  dataDate: string | null;
+  importedAt: string | null;
+  importedByName: string | null;
+  teacherCount: number;
+}
+
+/** A problem found in the uploaded files. `code` is translated on the page. */
+export interface DataIssue {
+  code: string;
+  file: string | null;
+  count: number;
+  details: string[];
+}
+
+export interface DataPreview {
+  ok: boolean;
+  files: { fileName: string; rows: number; schoolTypes: Record<string, number> }[];
+  errors: DataIssue[];
+  warnings: DataIssue[];
+  detectedDataDate: string | null;
+  teacherCount: number;
+  schoolCount: number;
+  subjectCount: number;
+  currentTeacherCount: number;
+  currentDataDate: string | null;
+  newTeachers: number;
+  removedTeachers: number;
+  byType: { schoolType: string; current: number; incoming: number }[];
+}
+
+export interface DataImportRecord {
+  id: number;
+  dataDate: string;
+  importedAt: string;
+  importedBy: string;
+  importedByName: string;
+  fileNames: string;
+  teacherCount: number;
+  schoolCount: number;
+  subjectCount: number;
+}
+
+export const getDataInfo = (token: string | null) =>
+  profileRequest<DataInfo>(token, "/data/info", "GET");
+
+export const getDataHistory = (token: string | null) =>
+  profileRequest<DataImportRecord[]>(token, "/data/history", "GET");
+
+/** Sends files as multipart/form-data. `status` is 0 when the server can't be reached. */
+async function postFiles<T>(token: string | null, path: string, files: File[], fields: Record<string, string> = {}) {
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+  for (const [k, v] of Object.entries(fields)) form.append(k, v);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    handleUnauthorized(res);
+    const data = (await res.json().catch(() => null)) as T | null;
+    return { status: res.status, data };
+  } catch {
+    return { status: 0, data: null as T | null };
+  }
+}
+
+/** Checks the files and compares them with the current data. Changes nothing. */
+export const previewData = (token: string | null, files: File[]) =>
+  postFiles<DataPreview>(token, "/data/preview", files);
+
+/** Replaces ALL teacher data with the uploaded files. */
+export const importData = (token: string | null, files: File[], dataDate: string) =>
+  postFiles<{ preview: DataPreview; info: DataInfo | null }>(token, "/data/import", files, { dataDate });
+
+// ---------- Accounts: email verification ----------
+
+export type AccountStatus = "unverified" | "pending" | "active" | "deactivated";
+
+/** Official KPM email: @moe.gov.my or a subdomain (same rule as the API). */
+export function isOfficialEmail(email: string): boolean {
+  const at = email.trim().lastIndexOf("@");
+  if (at < 1) return false;
+  const domain = email.trim().slice(at + 1).toLowerCase();
+  return domain === "moe.gov.my" || domain.endsWith(".moe.gov.my");
+}
+
+async function postJson<T>(path: string, body: unknown, token?: string | null) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(body),
+    });
+    if (token) handleUnauthorized(res);
+    const data = (await res.json().catch(() => null)) as T | null;
+    return { status: res.status, data };
+  } catch {
+    return { status: 0, data: null as T | null };
+  }
+}
+
+export const verifyEmail = (token: string) =>
+  postJson<{ status?: AccountStatus; username?: string; code?: string }>("/auth/verify-email", { token });
+
+/** `login` = username or email. Always answers the same, whether or not the account exists. */
+export const resendVerification = (login: string) =>
+  postJson<{ message: string }>("/auth/resend-verification", { login });
+
+// ---------- Pengurusan Pengguna (admin) ----------
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  fullName: string;
+  email: string;
+  officialEmail: boolean;
+  role: "admin" | "staff" | string;
+  status: AccountStatus;
+  jawatan: string | null;
+  jabatanBahagian: string | null;
+  sektor: string | null;
+  createdAt: string | null;
+  lastLoginAt: string | null;
+  statusUpdatedAt: string | null;
+  statusUpdatedBy: string | null;
+  isSelf: boolean;
+}
+
+export const listUsers = (token: string | null) =>
+  profileRequest<AdminUser[]>(token, "/users", "GET");
+
+export const getPendingCount = (token: string | null) =>
+  profileRequest<{ count: number }>(token, "/users/pending-count", "GET");
+
+export type UserAction = "approve" | "reject" | "deactivate" | "activate";
+
+/** `code` explains a refusal: "self", "lastAdmin", "notPending", ... */
+export async function userAction(token: string | null, id: number, action: UserAction) {
+  return postJson<AdminUser & { code?: string }>(`/users/${id}/${action}`, {}, token);
+}
+
+export async function setUserRole(token: string | null, id: number, role: "admin" | "staff") {
+  try {
+    const res = await fetch(`${API_BASE}/users/${id}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ role }),
+    });
+    handleUnauthorized(res);
+    return { status: res.status, data: (await res.json().catch(() => null)) as (AdminUser & { code?: string }) | null };
+  } catch {
+    return { status: 0, data: null };
+  }
+}
+
+// ---------- Log Aktiviti ----------
+
+export interface ActivityItem {
+  id: number;
+  at: string;
+  username: string;
+  fullName: string;
+  action: string;
+  detail: string;
+  ipAddress: string | null;
+}
+
+export type ActivityCategory = "" | "login" | "download" | "data" | "users" | "account";
+
+export function listActivity(token: string | null, p: { category: ActivityCategory; q: string; from: string; to: string; page: number; pageSize: number }) {
+  const qs = new URLSearchParams();
+  if (p.category) qs.set("category", p.category);
+  if (p.q.trim()) qs.set("q", p.q.trim());
+  if (p.from) qs.set("from", p.from);
+  if (p.to) qs.set("to", p.to);
+  qs.set("page", String(p.page));
+  qs.set("pageSize", String(p.pageSize));
+  return profileRequest<{ items: ActivityItem[]; total: number }>(token, `/activity?${qs}`, "GET");
+}
+
+/** Records a report download in Log Aktiviti. Best effort: a failure is ignored. */
+export async function logDownload(token: string | null, d: { report: string; format: string; filters: string; rows: number }) {
+  try {
+    await fetch(`${API_BASE}/activity/download`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(d),
+    });
+  } catch { /* ignore */ }
+}
