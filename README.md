@@ -6,6 +6,11 @@ Before this, officers who needed a quick figure (teachers retiring soon, teacher
 
 > Teacher data is personal data under the PDPA, so no real data is stored in this repository. See `.gitignore`.
 
+## Screenshots
+![Overview page](screenshots/overview.png)
+![Demographics page](screenshots/demographics.png)
+![Login page](screenshots/login.png)
+
 ## Features
 
 **For all officers**
